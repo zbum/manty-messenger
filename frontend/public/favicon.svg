@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Chat bubble background -->
+  <path d="M8 12C8 7.58 11.58 4 16 4h32c4.42 0 8 3.58 8 8v28c0 4.42-3.58 8-8 8H24l-12 12V48h-4c-4.42 0-8-3.58-8-8V12z" fill="#007bff"/>
+  <!-- Letter M -->
+  <text x="32" y="38" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="white" text-anchor="middle">M</text>
+</svg>
