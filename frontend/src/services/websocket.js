@@ -6,6 +6,8 @@ class WebSocketService {
     this.maxReconnectAttempts = 5
     this.reconnectDelay = 1000
     this.isConnecting = false
+    this.currentRoomId = null
+    this.pendingMessages = []
   }
 
   connect(token) {
@@ -24,8 +26,23 @@ class WebSocketService {
 
       this.socket.onopen = () => {
         console.log('WebSocket connected')
+        const wasReconnecting = this.reconnectAttempts > 0
         this.reconnectAttempts = 0
         this.isConnecting = false
+
+        // Send pending messages (for initial connection)
+        while (this.pendingMessages.length > 0) {
+          const msg = this.pendingMessages.shift()
+          console.log('Sending pending message:', msg.type)
+          this.socket.send(JSON.stringify(msg))
+        }
+
+        // Rejoin room only if reconnecting (not initial connection)
+        if (wasReconnecting && this.currentRoomId) {
+          console.log('Rejoining room after reconnect:', this.currentRoomId)
+          this.send('join_room', { room_id: this.currentRoomId })
+        }
+
         resolve()
       }
 
@@ -75,21 +92,31 @@ class WebSocketService {
   }
 
   send(type, payload = {}) {
+    const message = {
+      type,
+      payload,
+      timestamp: new Date().toISOString(),
+      request_id: this.generateId()
+    }
+
     if (this.socket?.readyState === WebSocket.OPEN) {
-      this.socket.send(JSON.stringify({
-        type,
-        payload,
-        timestamp: new Date().toISOString(),
-        request_id: this.generateId()
-      }))
+      this.socket.send(JSON.stringify(message))
+    } else if (this.isConnecting || this.socket) {
+      // Queue message if connecting or socket exists but not ready
+      console.log('Queuing message:', type)
+      this.pendingMessages.push(message)
     }
   }
 
   joinRoom(roomId) {
+    this.currentRoomId = roomId
     this.send('join_room', { room_id: roomId })
   }
 
   leaveRoom(roomId) {
+    if (this.currentRoomId === roomId) {
+      this.currentRoomId = null
+    }
     this.send('leave_room', { room_id: roomId })
   }
 
@@ -127,6 +154,8 @@ class WebSocketService {
     }
     this.listeners.clear()
     this.reconnectAttempts = 0
+    this.currentRoomId = null
+    this.pendingMessages = []
   }
 
   generateId() {
