@@ -45,8 +45,11 @@ func (s *MessageService) Create(ctx context.Context, roomID, senderID uint64, re
 		return nil, err
 	}
 
+	// Get unread count (all members except sender haven't read yet)
+	unreadCount, _ := s.messageRepo.GetUnreadCount(ctx, roomID, msg.CreatedAt, senderID)
+
 	sender, _ := s.userRepo.GetByID(ctx, senderID)
-	return msg.ToResponse(sender.ToResponse()), nil
+	return msg.ToResponse(sender.ToResponse(), unreadCount), nil
 }
 
 func (s *MessageService) GetByRoomID(ctx context.Context, roomID, userID uint64, limit, offset int) ([]*models.MessageResponse, error) {
@@ -76,7 +79,8 @@ func (s *MessageService) GetByRoomID(ctx context.Context, roomID, userID uint64,
 				userCache[msg.SenderID] = sender
 			}
 		}
-		responses = append(responses, msg.ToResponse(sender))
+		unreadCount, _ := s.messageRepo.GetUnreadCount(ctx, roomID, msg.CreatedAt, msg.SenderID)
+		responses = append(responses, msg.ToResponse(sender, unreadCount))
 	}
 	return responses, nil
 }
@@ -95,8 +99,9 @@ func (s *MessageService) GetByID(ctx context.Context, roomID, msgID, userID uint
 		return nil, err
 	}
 
+	unreadCount, _ := s.messageRepo.GetUnreadCount(ctx, roomID, msg.CreatedAt, msg.SenderID)
 	sender, _ := s.userRepo.GetByID(ctx, msg.SenderID)
-	return msg.ToResponse(sender.ToResponse()), nil
+	return msg.ToResponse(sender.ToResponse(), unreadCount), nil
 }
 
 func (s *MessageService) Update(ctx context.Context, msgID, userID uint64, req *models.UpdateMessageRequest) (*models.MessageResponse, error) {
@@ -115,8 +120,9 @@ func (s *MessageService) Update(ctx context.Context, msgID, userID uint64, req *
 	}
 
 	msg.IsEdited = true
+	unreadCount, _ := s.messageRepo.GetUnreadCount(ctx, msg.RoomID, msg.CreatedAt, msg.SenderID)
 	sender, _ := s.userRepo.GetByID(ctx, userID)
-	return msg.ToResponse(sender.ToResponse()), nil
+	return msg.ToResponse(sender.ToResponse(), unreadCount), nil
 }
 
 func (s *MessageService) Delete(ctx context.Context, msgID, userID uint64) error {

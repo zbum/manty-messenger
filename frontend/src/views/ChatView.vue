@@ -17,6 +17,7 @@ const hasCurrentRoom = computed(() => !!chatStore.currentRoom)
 
 onMounted(async () => {
   await chatStore.fetchRooms()
+  await chatStore.restoreLastRoom()
 })
 
 onUnmounted(() => {

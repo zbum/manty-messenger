@@ -211,6 +211,7 @@ func (h *Handler) handleSendMessage(client *Client, msg *WSMessage) {
 			Content:     savedMsg.Content,
 			MessageType: savedMsg.MessageType,
 			CreatedAt:   savedMsg.CreatedAt,
+			UnreadCount: savedMsg.UnreadCount,
 		},
 		Timestamp: time.Now(),
 	}
@@ -252,6 +253,21 @@ func (h *Handler) handleMarkRead(client *Client, msg *WSMessage) {
 	}
 
 	h.memberRepo.UpdateLastRead(context.Background(), payload.RoomID, client.UserID)
+
+	// Broadcast read status to room members
+	notification := &WSMessage{
+		Type: TypeMessageRead,
+		Payload: MessageReadPayload{
+			RoomID:   payload.RoomID,
+			UserID:   client.UserID,
+			Username: client.Username,
+		},
+		Timestamp: time.Now(),
+	}
+
+	if data, err := marshalMessage(notification); err == nil {
+		h.hub.BroadcastToRoom(payload.RoomID, data, client)
+	}
 }
 
 func (h *Handler) handlePing(client *Client) {
