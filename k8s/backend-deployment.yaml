@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mmessenger-backend
+  namespace: messenger
+  labels:
+    app: mmessenger
+    component: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mmessenger
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: mmessenger
+        component: backend
+    spec:
+      containers:
+        - name: mmessenger-backend
+          image: registry.manty.co.kr/mmessenger-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: mmessenger-config
+            - secretRef:
+                name: mmessenger-secret
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+      restartPolicy: Always

@@ -20,6 +20,9 @@ go.work
 .env.local
 .env.*.local
 
+# Kubernetes secrets (use secret.example.yaml as template)
+k8s/secret.yaml
+
 # IDE
 .idea/
 .vscode/

@@ -37,7 +37,10 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('access_token', access_token)
         localStorage.setItem('refresh_token', refresh_token)
 
-        await websocket.connect(access_token)
+        // WebSocket 연결은 별도로 처리 (실패해도 회원가입 성공)
+        websocket.connect(access_token).catch(err => {
+          console.error('WebSocket connection failed:', err)
+        })
 
         return true
       } catch (error) {
@@ -67,7 +70,10 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('access_token', access_token)
         localStorage.setItem('refresh_token', refresh_token)
 
-        await websocket.connect(access_token)
+        // WebSocket 연결은 별도로 처리 (실패해도 로그인 성공)
+        websocket.connect(access_token).catch(err => {
+          console.error('WebSocket connection failed:', err)
+        })
 
         return true
       } catch (error) {

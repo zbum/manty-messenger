@@ -18,7 +18,7 @@ class WebSocketService {
     return new Promise((resolve, reject) => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const host = window.location.host
-      const wsUrl = `${protocol}//${host}/ws?token=${token}`
+      const wsUrl = `${protocol}//${host}/messenger/ws?token=${token}`
 
       this.socket = new WebSocket(wsUrl)
 

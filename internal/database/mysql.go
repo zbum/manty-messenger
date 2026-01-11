@@ -11,7 +11,7 @@ import (
 )
 
 func NewMySQL(cfg *config.DatabaseConfig) (*sql.DB, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&allowNativePasswords=true&allowCleartextPasswords=true&tls=false",
 		cfg.User,
 		cfg.Password,
 		cfg.Host,
