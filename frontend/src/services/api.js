@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: '/messenger/api/v1',
   headers: {
     'Content-Type': 'application/json'
   }
@@ -31,7 +31,7 @@ api.interceptors.response.use(
       const refreshToken = localStorage.getItem('refresh_token')
       if (refreshToken) {
         try {
-          const response = await axios.post('/api/v1/auth/refresh', {
+          const response = await axios.post('/messenger/api/v1/auth/refresh', {
             refresh_token: refreshToken
           })
 
@@ -43,7 +43,7 @@ api.interceptors.response.use(
         } catch (refreshError) {
           localStorage.removeItem('access_token')
           localStorage.removeItem('refresh_token')
-          window.location.href = '/login'
+          window.location.href = '/messenger/login'
         }
       }
     }

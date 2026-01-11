@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mmessenger-config
+  namespace: messenger
+data:
+  DB_HOST: "192.168.31.102"
+  DB_PORT: "3306"
+  DB_NAME: "manty_messenger"
+  SERVER_HOST: "0.0.0.0"
+  SERVER_PORT: "8080"
+  CORS_ORIGINS: "https://messenger.example.com"
+  JWT_ACCESS_EXPIRY: "15m"
+  JWT_REFRESH_EXPIRY: "168h"

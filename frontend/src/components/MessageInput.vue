@@ -31,7 +31,8 @@ const handleSend = () => {
 }
 
 const handleKeydown = (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
+  // e.isComposing: 한글 등 IME 조합 중에는 Enter 무시
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
     e.preventDefault()
     handleSend()
   }

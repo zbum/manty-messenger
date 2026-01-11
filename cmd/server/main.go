@@ -17,20 +17,31 @@ import (
 )
 
 func main() {
+	log.Println("=== Mmessenger Server Starting ===")
+
 	// Load config
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	// Print configuration
+	log.Println("Configuration loaded:")
+	log.Printf("  Server: %s:%s", cfg.Server.Host, cfg.Server.Port)
+	log.Printf("  Database: %s@%s:%s/%s", cfg.Database.User, cfg.Database.Host, cfg.Database.Port, cfg.Database.Name)
+	log.Printf("  CORS Origins: %v", cfg.CORS.AllowedOrigins)
+	log.Printf("  JWT Access Expiry: %s", cfg.JWT.AccessExpiry)
+	log.Printf("  JWT Refresh Expiry: %s", cfg.JWT.RefreshExpiry)
+
 	// Connect to database
+	log.Printf("Connecting to database %s:%s...", cfg.Database.Host, cfg.Database.Port)
 	db, err := database.NewMySQL(&cfg.Database)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer db.Close()
 
-	log.Println("Connected to database")
+	log.Println("Database connection established")
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
@@ -66,11 +77,19 @@ func main() {
 	// Setup router
 	r := mux.NewRouter()
 
-	// Apply CORS middleware
+	// Apply middleware
+	r.Use(middleware.AccessLog)
 	r.Use(corsMiddleware.Handler)
 
 	// API routes
 	api := r.PathPrefix("/api/v1").Subrouter()
+
+	// Health check (public)
+	api.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	}).Methods("GET")
 
 	// Auth routes (public)
 	api.HandleFunc("/auth/register", authHandler.Register).Methods("POST")
@@ -116,7 +135,11 @@ func main() {
 
 	// Start server
 	addr := cfg.Server.Host + ":" + cfg.Server.Port
-	log.Printf("Server starting on %s", addr)
+	log.Println("=== Server Initialization Complete ===")
+	log.Printf("Listening on http://%s", addr)
+	log.Println("Health check: http://" + addr + "/api/v1/health")
+	log.Println("Ready to accept connections")
+
 	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
