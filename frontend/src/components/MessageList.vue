@@ -68,6 +68,7 @@ const getInitial = (name) => {
           {{ message.content }}
         </div>
         <div class="message-time">
+          <span v-if="message.unread_count > 0" class="unread-count">{{ message.unread_count }}</span>
           {{ formatTime(message.created_at) }}
           <span v-if="message.is_edited" class="edited">(수정됨)</span>
         </div>
@@ -169,5 +170,16 @@ const getInitial = (name) => {
 
 .edited {
   font-style: italic;
+}
+
+.unread-count {
+  display: inline-block;
+  background: #ffc107;
+  color: #333;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-right: 4px;
 }
 </style>

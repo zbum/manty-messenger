@@ -32,7 +32,10 @@ func (r *MessageRepository) Create(ctx context.Context, msg *models.Message) err
 		return err
 	}
 	msg.ID = uint64(id)
-	return nil
+
+	// Fetch created_at from database
+	err = r.db.QueryRowContext(ctx, "SELECT created_at FROM messages WHERE id = ?", msg.ID).Scan(&msg.CreatedAt)
+	return err
 }
 
 func (r *MessageRepository) GetByID(ctx context.Context, id uint64) (*models.Message, error) {
@@ -100,4 +103,17 @@ func (r *MessageRepository) Delete(ctx context.Context, id uint64) error {
 	query := `UPDATE messages SET is_deleted = TRUE, updated_at = NOW() WHERE id = ?`
 	_, err := r.db.ExecContext(ctx, query, id)
 	return err
+}
+
+// GetUnreadCount returns the number of room members who haven't read the message yet
+func (r *MessageRepository) GetUnreadCount(ctx context.Context, roomID uint64, messageCreatedAt interface{}, senderID uint64) (int, error) {
+	query := `
+		SELECT COUNT(*) FROM room_members
+		WHERE room_id = ?
+		AND user_id != ?
+		AND (last_read_at IS NULL OR last_read_at < ?)
+	`
+	var count int
+	err := r.db.QueryRowContext(ctx, query, roomID, senderID, messageCreatedAt).Scan(&count)
+	return count, err
 }

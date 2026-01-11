@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import api from '../services/api'
 import websocket from '../services/websocket'
+import { useAuthStore } from './auth'
 
 export const useChatStore = defineStore('chat', {
   state: () => ({
@@ -32,8 +33,13 @@ export const useChatStore = defineStore('chat', {
           sender: payload.sender,
           content: payload.content,
           message_type: payload.message_type,
-          created_at: payload.created_at
+          created_at: payload.created_at,
+          unread_count: payload.unread_count
         })
+      })
+
+      websocket.on('message_read', (payload) => {
+        this.decreaseUnreadCount(payload.room_id)
       })
 
       websocket.on('user_typing', (payload) => {
@@ -121,8 +127,28 @@ export const useChatStore = defineStore('chat', {
       this.currentRoom = room
       websocket.joinRoom(room.id)
 
+      // Save to localStorage for persistence
+      localStorage.setItem('currentRoomId', room.id.toString())
+
       if (!this.messages[room.id]) {
         await this.fetchMessages(room.id)
+      }
+
+      // Mark messages as read
+      const messages = this.messages[room.id]
+      if (messages && messages.length > 0) {
+        const lastMessage = messages[messages.length - 1]
+        this.markRead(room.id, lastMessage.id)
+      }
+    },
+
+    async restoreLastRoom() {
+      const savedRoomId = localStorage.getItem('currentRoomId')
+      if (savedRoomId && this.rooms.length > 0) {
+        const room = this.rooms.find(r => r.id === parseInt(savedRoomId))
+        if (room) {
+          await this.joinRoom(room)
+        }
       }
     },
 
@@ -144,6 +170,12 @@ export const useChatStore = defineStore('chat', {
         this.messages[roomId] = []
       }
       this.messages[roomId].push(message)
+
+      // If user is viewing this room AND not the sender, mark as read
+      const authStore = useAuthStore()
+      if (this.currentRoom?.id === roomId && message.sender?.id !== authStore.user?.id) {
+        this.markRead(roomId, message.id)
+      }
     },
 
     setTyping(isTyping) {
@@ -203,6 +235,22 @@ export const useChatStore = defineStore('chat', {
       if (!existingRoom) {
         this.rooms.unshift(room)
       }
+    },
+
+    decreaseUnreadCount(roomId) {
+      const messages = this.messages[roomId]
+      if (messages) {
+        messages.forEach(msg => {
+          if (msg.unread_count > 0) {
+            msg.unread_count--
+          }
+        })
+      }
+    },
+
+    markRead(roomId, messageId) {
+      if (!roomId) return
+      websocket.markRead(roomId, messageId)
     }
   }
 })

@@ -36,9 +36,10 @@ type MessageResponse struct {
 	FileURL     *string       `json:"file_url,omitempty"`
 	IsEdited    bool          `json:"is_edited"`
 	CreatedAt   time.Time     `json:"created_at"`
+	UnreadCount int           `json:"unread_count"`
 }
 
-func (m *Message) ToResponse(sender *UserResponse) *MessageResponse {
+func (m *Message) ToResponse(sender *UserResponse, unreadCount int) *MessageResponse {
 	var fileURL *string
 	if m.FileURL.Valid {
 		fileURL = &m.FileURL.String
@@ -58,6 +59,7 @@ func (m *Message) ToResponse(sender *UserResponse) *MessageResponse {
 		FileURL:     fileURL,
 		IsEdited:    m.IsEdited,
 		CreatedAt:   m.CreatedAt,
+		UnreadCount: unreadCount,
 	}
 }
 

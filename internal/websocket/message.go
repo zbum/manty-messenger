@@ -19,6 +19,7 @@ const (
 
 	// Server -> Client
 	TypeNewMessage     MessageType = "new_message"
+	TypeMessageRead    MessageType = "message_read"
 	TypeUserJoined     MessageType = "user_joined"
 	TypeUserLeft       MessageType = "user_left"
 	TypeUserTyping     MessageType = "user_typing"
@@ -76,12 +77,19 @@ type MarkReadPayload struct {
 
 // Payload types for server messages
 type NewMessagePayload struct {
-	ID          uint64                `json:"id"`
-	RoomID      uint64                `json:"room_id"`
-	Sender      *models.UserResponse  `json:"sender"`
-	Content     string                `json:"content"`
-	MessageType models.MessageType    `json:"message_type"`
-	CreatedAt   time.Time             `json:"created_at"`
+	ID          uint64               `json:"id"`
+	RoomID      uint64               `json:"room_id"`
+	Sender      *models.UserResponse `json:"sender"`
+	Content     string               `json:"content"`
+	MessageType models.MessageType   `json:"message_type"`
+	CreatedAt   time.Time            `json:"created_at"`
+	UnreadCount int                  `json:"unread_count"`
+}
+
+type MessageReadPayload struct {
+	RoomID      uint64 `json:"room_id"`
+	UserID      uint64 `json:"user_id"`
+	Username    string `json:"username"`
 }
 
 type UserJoinedPayload struct {
