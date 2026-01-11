@@ -1,25 +1,3 @@
-# Root path redirect to /messenger/login
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: mmessenger-root-redirect
-  namespace: messenger
-  annotations:
-    kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/permanent-redirect: /messenger/login
-spec:
-  rules:
-    - host: messenger.manty.co.kr
-      http:
-        paths:
-          - path: /
-            pathType: Exact
-            backend:
-              service:
-                name: mmessenger-frontend
-                port:
-                  number: 80
----
 # Main ingress - frontend nginx handles internal routing
 apiVersion: networking.k8s.io/v1
 kind: Ingress
