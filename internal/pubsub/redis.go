@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -15,21 +16,24 @@ const (
 )
 
 type Message struct {
-	Type    string          `json:"type"`
-	RoomID  uint64          `json:"room_id,omitempty"`
-	UserID  uint64          `json:"user_id,omitempty"`
-	Payload json.RawMessage `json:"payload"`
+	Type     string          `json:"type"`
+	ServerID string          `json:"server_id"`
+	RoomID   uint64          `json:"room_id,omitempty"`
+	UserID   uint64          `json:"user_id,omitempty"`
+	Payload  json.RawMessage `json:"payload"`
 }
 
 type RedisPubSub struct {
-	client    *redis.Client
-	pubsub    *redis.PubSub
-	handlers  map[string]func(*Message)
+	client   *redis.Client
+	pubsub   *redis.PubSub
+	serverID string
+	handlers map[string]func(*Message)
 }
 
 func NewRedisPubSub(client *redis.Client) *RedisPubSub {
 	return &RedisPubSub{
 		client:   client,
+		serverID: uuid.New().String(),
 		handlers: make(map[string]func(*Message)),
 	}
 }
@@ -69,6 +73,11 @@ func (r *RedisPubSub) handleMessage(msg *redis.Message) {
 		return
 	}
 
+	// Ignore messages from self
+	if m.ServerID == r.serverID {
+		return
+	}
+
 	if handler, ok := r.handlers[msg.Channel]; ok {
 		handler(&m)
 	}
@@ -88,18 +97,20 @@ func (r *RedisPubSub) Publish(ctx context.Context, channel string, msg *Message)
 
 func (r *RedisPubSub) PublishRoomMessage(ctx context.Context, roomID uint64, payload []byte) error {
 	msg := &Message{
-		Type:    "room_message",
-		RoomID:  roomID,
-		Payload: payload,
+		Type:     "room_message",
+		ServerID: r.serverID,
+		RoomID:   roomID,
+		Payload:  payload,
 	}
 	return r.Publish(ctx, ChannelRoomMessage, msg)
 }
 
 func (r *RedisPubSub) PublishUserMessage(ctx context.Context, userID uint64, payload []byte) error {
 	msg := &Message{
-		Type:    "user_message",
-		UserID:  userID,
-		Payload: payload,
+		Type:     "user_message",
+		ServerID: r.serverID,
+		UserID:   userID,
+		Payload:  payload,
 	}
 	return r.Publish(ctx, ChannelUserMessage, msg)
 }
@@ -110,9 +121,10 @@ func (r *RedisPubSub) PublishPresence(ctx context.Context, userID uint64, status
 		"status":  status,
 	})
 	msg := &Message{
-		Type:    "presence",
-		UserID:  userID,
-		Payload: payload,
+		Type:     "presence",
+		ServerID: r.serverID,
+		UserID:   userID,
+		Payload:  payload,
 	}
 	return r.Publish(ctx, ChannelPresence, msg)
 }
