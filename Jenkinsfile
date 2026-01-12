@@ -27,7 +27,12 @@ pipeline {
 
         stage('Test Backend') {
             steps {
-                sh 'go test ./... -v -cover'
+                sh '''
+                    docker run --rm -v $(pwd):/app -w /app golang:1.24-alpine sh -c "
+                        apk add --no-cache gcc musl-dev vips-dev pkgconfig &&
+                        CGO_ENABLED=1 go test ./... -v -cover
+                    "
+                '''
             }
         }
 
