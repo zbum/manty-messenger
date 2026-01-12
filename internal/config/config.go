@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -10,6 +11,7 @@ import (
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
+	Redis    RedisConfig
 	JWT      JWTConfig
 	CORS     CORSConfig
 }
@@ -37,6 +39,13 @@ type CORSConfig struct {
 	AllowedOrigins string
 }
 
+type RedisConfig struct {
+	Host     string
+	Port     string
+	Password string
+	DB       int
+}
+
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 
@@ -50,6 +59,11 @@ func Load() (*Config, error) {
 		refreshExpiry = 168 * time.Hour
 	}
 
+	redisDB, err := strconv.Atoi(getEnv("REDIS_DB", "0"))
+	if err != nil {
+		redisDB = 0
+	}
+
 	return &Config{
 		Server: ServerConfig{
 			Host: getEnv("SERVER_HOST", "localhost"),
@@ -61,6 +75,12 @@ func Load() (*Config, error) {
 			User:     getEnv("DB_USER", "messenger"),
 			Password: getEnv("DB_PASS", "password"),
 			Name:     getEnv("DB_NAME", "messenger_db"),
+		},
+		Redis: RedisConfig{
+			Host:     getEnv("REDIS_HOST", "localhost"),
+			Port:     getEnv("REDIS_PORT", "6379"),
+			Password: getEnv("REDIS_PASSWORD", ""),
+			DB:       redisDB,
 		},
 		JWT: JWTConfig{
 			Secret:        getEnv("JWT_SECRET", "default-secret-change-me"),

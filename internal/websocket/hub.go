@@ -1,8 +1,13 @@
 package websocket
 
 import (
+	"context"
+	"encoding/json"
+	"log"
 	"sync"
 	"time"
+
+	"Mmessenger/internal/pubsub"
 )
 
 type Hub struct {
@@ -13,6 +18,7 @@ type Hub struct {
 	register   chan *Client
 	unregister chan *Client
 	mu         sync.RWMutex
+	pubsub     *pubsub.RedisPubSub
 }
 
 type BroadcastMessage struct {
@@ -21,14 +27,105 @@ type BroadcastMessage struct {
 	Sender  *Client
 }
 
-func NewHub() *Hub {
-	return &Hub{
+func NewHub(ps *pubsub.RedisPubSub) *Hub {
+	h := &Hub{
 		clients:    make(map[*Client]bool),
 		rooms:      make(map[uint64]map[*Client]bool),
 		userConns:  make(map[uint64]*Client),
 		broadcast:  make(chan *BroadcastMessage, 256),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
+		pubsub:     ps,
+	}
+
+	if ps != nil {
+		h.setupPubSubHandlers()
+	}
+
+	return h
+}
+
+func (h *Hub) setupPubSubHandlers() {
+	h.pubsub.OnMessage(pubsub.ChannelRoomMessage, func(msg *pubsub.Message) {
+		h.handlePubSubRoomMessage(msg)
+	})
+
+	h.pubsub.OnMessage(pubsub.ChannelUserMessage, func(msg *pubsub.Message) {
+		h.handlePubSubUserMessage(msg)
+	})
+
+	h.pubsub.OnMessage(pubsub.ChannelPresence, func(msg *pubsub.Message) {
+		h.handlePubSubPresence(msg)
+	})
+}
+
+func (h *Hub) handlePubSubRoomMessage(msg *pubsub.Message) {
+	h.mu.RLock()
+	room, ok := h.rooms[msg.RoomID]
+	h.mu.RUnlock()
+
+	if !ok {
+		return
+	}
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for client := range room {
+		select {
+		case client.send <- msg.Payload:
+		default:
+		}
+	}
+}
+
+func (h *Hub) handlePubSubUserMessage(msg *pubsub.Message) {
+	h.mu.RLock()
+	client, ok := h.userConns[msg.UserID]
+	h.mu.RUnlock()
+
+	if ok {
+		select {
+		case client.send <- msg.Payload:
+		default:
+		}
+	}
+}
+
+func (h *Hub) handlePubSubPresence(msg *pubsub.Message) {
+	var payload struct {
+		UserID uint64 `json:"user_id"`
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		log.Printf("Failed to unmarshal presence payload: %v", err)
+		return
+	}
+
+	wsMsg := &WSMessage{
+		Type: TypePresenceUpdate,
+		Payload: map[string]interface{}{
+			"user_id": payload.UserID,
+			"status":  payload.Status,
+		},
+		Timestamp: time.Now(),
+	}
+
+	data, err := marshalMessage(wsMsg)
+	if err != nil {
+		return
+	}
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for client := range h.clients {
+		if client.UserID != payload.UserID {
+			select {
+			case client.send <- data:
+			default:
+			}
+		}
 	}
 }
 
@@ -109,10 +206,18 @@ func (h *Hub) LeaveRoom(client *Client, roomID uint64) {
 }
 
 func (h *Hub) BroadcastToRoom(roomID uint64, message []byte, sender *Client) {
+	// Send to local clients
 	h.broadcast <- &BroadcastMessage{
 		RoomID:  roomID,
 		Message: message,
 		Sender:  sender,
+	}
+
+	// Publish to Redis for other servers
+	if h.pubsub != nil {
+		if err := h.pubsub.PublishRoomMessage(context.Background(), roomID, message); err != nil {
+			log.Printf("Failed to publish room message to Redis: %v", err)
+		}
 	}
 }
 
@@ -125,6 +230,13 @@ func (h *Hub) SendToUser(userID uint64, message []byte) {
 		select {
 		case client.send <- message:
 		default:
+		}
+	}
+
+	// Also publish to Redis for other servers
+	if h.pubsub != nil {
+		if err := h.pubsub.PublishUserMessage(context.Background(), userID, message); err != nil {
+			log.Printf("Failed to publish user message to Redis: %v", err)
 		}
 	}
 }
@@ -170,6 +282,13 @@ func (h *Hub) BroadcastPresence(userID uint64, status string) {
 				default:
 				}
 			}
+		}
+	}
+
+	// Publish to Redis for other servers
+	if h.pubsub != nil {
+		if err := h.pubsub.PublishPresence(context.Background(), userID, status); err != nil {
+			log.Printf("Failed to publish presence to Redis: %v", err)
 		}
 	}
 }

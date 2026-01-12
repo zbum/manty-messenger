@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -10,6 +11,7 @@ import (
 	"Mmessenger/internal/database"
 	"Mmessenger/internal/handler"
 	"Mmessenger/internal/middleware"
+	"Mmessenger/internal/pubsub"
 	"Mmessenger/internal/repository"
 	"Mmessenger/internal/service"
 	"Mmessenger/internal/websocket"
@@ -43,6 +45,29 @@ func main() {
 
 	log.Println("Database connection established")
 
+	// Connect to Redis
+	log.Printf("Connecting to Redis %s:%s...", cfg.Redis.Host, cfg.Redis.Port)
+	redisClient, err := database.NewRedis(&cfg.Redis)
+	if err != nil {
+		log.Fatalf("Failed to connect to Redis: %v", err)
+	}
+	defer redisClient.Close()
+
+	log.Println("Redis connection established")
+
+	// Initialize Redis Pub/Sub
+	redisPubSub := pubsub.NewRedisPubSub(redisClient)
+	if err := redisPubSub.Subscribe(context.Background(),
+		pubsub.ChannelRoomMessage,
+		pubsub.ChannelUserMessage,
+		pubsub.ChannelPresence,
+	); err != nil {
+		log.Fatalf("Failed to subscribe to Redis channels: %v", err)
+	}
+	defer redisPubSub.Close()
+
+	log.Println("Redis Pub/Sub initialized")
+
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
 	roomRepo := repository.NewRoomRepository(db)
@@ -58,7 +83,7 @@ func main() {
 	messageService := service.NewMessageService(messageRepo, memberRepo, userRepo)
 
 	// Initialize WebSocket Hub first (needed by RoomHandler)
-	hub := websocket.NewHub()
+	hub := websocket.NewHub(redisPubSub)
 	go hub.Run()
 
 	// Initialize handlers

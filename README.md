@@ -1,4 +1,4 @@
-# Mmessenger
+# Manty-Messenger
 
 WebSocket 기반 실시간 메신저 애플리케이션
 
@@ -10,6 +10,7 @@ https://messenger.manty.co.kr/
 
 - **Backend**: Go (gorilla/websocket, gorilla/mux)
 - **Database**: MySQL
+- **Cache/PubSub**: Redis (다중 서버 지원)
 - **Frontend**: Vue.js 3 + Pinia + Vue Router
 - **Authentication**: JWT (Access Token + Refresh Token)
 
@@ -29,12 +30,13 @@ Mmessenger/
 ├── cmd/server/main.go          # 서버 진입점
 ├── internal/
 │   ├── config/                 # 환경설정
-│   ├── database/               # DB 연결 및 마이그레이션
+│   ├── database/               # DB/Redis 연결
 │   ├── models/                 # 데이터 모델
 │   ├── repository/             # DB CRUD
 │   ├── service/                # 비즈니스 로직
 │   ├── handler/                # HTTP 핸들러
 │   ├── websocket/              # WebSocket 처리
+│   ├── pubsub/                 # Redis Pub/Sub (다중 서버 지원)
 │   └── middleware/             # 인증, CORS 등
 ├── pkg/jwt/                    # JWT 유틸리티
 └── frontend/                   # Vue.js 앱
@@ -47,6 +49,7 @@ Mmessenger/
 - Go 1.21+
 - Node.js 18+
 - MySQL 8.0+
+- Redis 6.0+
 
 ### 1. 데이터베이스 설정
 
@@ -64,6 +67,11 @@ DB_PORT=3306
 DB_USER=root
 DB_PASS=your_password
 DB_NAME=manty_messenger
+
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=0
 
 JWT_SECRET=your-secret-key
 JWT_ACCESS_EXPIRY=15m
