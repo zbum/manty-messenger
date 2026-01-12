@@ -2,6 +2,10 @@
 
 WebSocket 기반 실시간 메신저 애플리케이션
 
+## 온라인 서비스
+
+https://messenger.manty.co.kr/
+
 ## 기술 스택
 
 - **Backend**: Go (gorilla/websocket, gorilla/mux)
