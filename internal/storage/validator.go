@@ -19,11 +19,15 @@ var allowedMimeTypes = map[string]bool{
 	"application/msword": true,
 	"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
 	"application/vnd.ms-excel": true,
-	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": true,
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":       true,
+	"application/vnd.ms-powerpoint":                                           true,
+	"application/vnd.openxmlformats-officedocument.presentationml.presentation": true,
 
-	// Archives
+	// Archives (xlsx, docx, pptx are actually zip files)
 	"application/zip":              true,
+	"application/x-zip-compressed": true,
 	"application/x-rar-compressed": true,
+	"application/octet-stream":     true, // Generic binary - rely on extension check
 
 	// Text
 	"text/plain": true,
@@ -32,6 +36,7 @@ var allowedMimeTypes = map[string]bool{
 var allowedExtensions = map[string]bool{
 	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
 	".pdf": true, ".doc": true, ".docx": true, ".xls": true, ".xlsx": true,
+	".ppt": true, ".pptx": true,
 	".zip": true, ".rar": true, ".txt": true,
 }
 
