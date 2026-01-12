@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import api from '../services/api'
 import websocket from '../services/websocket'
+import { useChatStore } from './chat'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -94,6 +95,10 @@ export const useAuthStore = defineStore('auth', {
       }
 
       websocket.disconnect()
+
+      // Reset chat store state
+      const chatStore = useChatStore()
+      chatStore.reset()
 
       this.user = null
       this.accessToken = null
