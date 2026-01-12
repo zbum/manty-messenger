@@ -174,6 +174,31 @@ const processFile = (file) => {
     filePreview.value = null
   }
 }
+
+// Clipboard paste handler
+const handlePaste = (e) => {
+  if (isUploading.value) return
+
+  const items = e.clipboardData?.items
+  if (!items) return
+
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault()
+      const file = item.getAsFile()
+      if (file) {
+        // Generate filename for pasted images
+        const ext = file.type.split('/')[1] || 'png'
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+        const namedFile = new File([file], `pasted-image-${timestamp}.${ext}`, {
+          type: file.type
+        })
+        processFile(namedFile)
+      }
+      break
+    }
+  }
+}
 </script>
 
 <template>
@@ -242,6 +267,7 @@ const processFile = (file) => {
         v-model="message"
         @input="handleInput"
         @keydown="handleKeydown"
+        @paste="handlePaste"
         :placeholder="selectedFile ? '파일 설명을 입력하세요 (선택사항)' : '메시지를 입력하세요...'"
         rows="1"
         class="message-textarea"
