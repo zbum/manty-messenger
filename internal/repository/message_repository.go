@@ -17,11 +17,11 @@ func NewMessageRepository(db *sql.DB) *MessageRepository {
 
 func (r *MessageRepository) Create(ctx context.Context, msg *models.Message) error {
 	query := `
-		INSERT INTO messages (room_id, sender_id, content, message_type)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO messages (room_id, sender_id, content, message_type, file_url)
+		VALUES (?, ?, ?, ?, ?)
 	`
 	result, err := r.db.ExecContext(ctx, query,
-		msg.RoomID, msg.SenderID, msg.Content, msg.MessageType,
+		msg.RoomID, msg.SenderID, msg.Content, msg.MessageType, msg.FileURL,
 	)
 	if err != nil {
 		return err

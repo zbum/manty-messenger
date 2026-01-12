@@ -14,6 +14,7 @@ import (
 	"Mmessenger/internal/pubsub"
 	"Mmessenger/internal/repository"
 	"Mmessenger/internal/service"
+	"Mmessenger/internal/storage"
 	"Mmessenger/internal/websocket"
 	"Mmessenger/pkg/jwt"
 )
@@ -68,6 +69,18 @@ func main() {
 
 	log.Println("Redis Pub/Sub initialized")
 
+	// Initialize file storage
+	log.Printf("Initializing file storage at %s...", cfg.Storage.BasePath)
+	localStorage, err := storage.NewLocalStorage(
+		cfg.Storage.BasePath,
+		cfg.Storage.BaseURL,
+		cfg.Storage.MaxFileSize,
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize storage: %v", err)
+	}
+	log.Println("File storage initialized")
+
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
 	roomRepo := repository.NewRoomRepository(db)
@@ -91,6 +104,7 @@ func main() {
 	roomHandler := handler.NewRoomHandler(roomService, hub)
 	messageHandler := handler.NewMessageHandler(messageService)
 	userHandler := handler.NewUserHandler(userRepo)
+	fileHandler := handler.NewFileHandler(localStorage, cfg.Storage.MaxFileSize)
 
 	// Initialize WebSocket handler
 	wsHandler := websocket.NewHandler(hub, jwtService, messageService, memberRepo, userRepo, roomRepo)
@@ -152,8 +166,18 @@ func main() {
 	roomRoutes.HandleFunc("/{id:[0-9]+}/messages/{msgId:[0-9]+}", messageHandler.Update).Methods("PUT")
 	roomRoutes.HandleFunc("/{id:[0-9]+}/messages/{msgId:[0-9]+}", messageHandler.Delete).Methods("DELETE")
 
+	// File routes (protected)
+	fileRoutes := api.PathPrefix("/files").Subrouter()
+	fileRoutes.Use(authMiddleware.Authenticate)
+	fileRoutes.HandleFunc("/upload", fileHandler.Upload).Methods("POST")
+
 	// WebSocket route
 	r.HandleFunc("/ws", wsHandler.ServeWS)
+
+	// Serve uploaded files
+	r.PathPrefix(cfg.Storage.BaseURL + "/").Handler(
+		http.StripPrefix(cfg.Storage.BaseURL+"/",
+			http.FileServer(http.Dir(cfg.Storage.BasePath))))
 
 	// Serve static files for frontend
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./frontend/dist")))

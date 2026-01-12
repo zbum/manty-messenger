@@ -51,4 +51,11 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 3
+          volumeMounts:
+            - name: storage-volume
+              mountPath: /data/uploads
+      volumes:
+        - name: storage-volume
+          persistentVolumeClaim:
+            claimName: mmessenger-storage
       restartPolicy: Always

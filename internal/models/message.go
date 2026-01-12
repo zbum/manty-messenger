@@ -66,6 +66,7 @@ func (m *Message) ToResponse(sender *UserResponse, unreadCount int) *MessageResp
 type SendMessageRequest struct {
 	Content     string      `json:"content"`
 	MessageType MessageType `json:"message_type"`
+	FileURL     string      `json:"file_url,omitempty"`
 }
 
 type UpdateMessageRequest struct {

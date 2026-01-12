@@ -184,7 +184,7 @@ func (h *Handler) handleSendMessage(client *Client, msg *WSMessage) {
 		return
 	}
 
-	if payload.Content == "" {
+	if payload.Content == "" && payload.FileURL == "" {
 		client.sendError("EMPTY_CONTENT", "Message content cannot be empty", msg.RequestID)
 		return
 	}
@@ -193,6 +193,7 @@ func (h *Handler) handleSendMessage(client *Client, msg *WSMessage) {
 	req := &models.SendMessageRequest{
 		Content:     payload.Content,
 		MessageType: payload.MessageType,
+		FileURL:     payload.FileURL,
 	}
 
 	savedMsg, err := h.messageService.Create(context.Background(), payload.RoomID, client.UserID, req)
@@ -210,6 +211,7 @@ func (h *Handler) handleSendMessage(client *Client, msg *WSMessage) {
 			Sender:      savedMsg.Sender,
 			Content:     savedMsg.Content,
 			MessageType: savedMsg.MessageType,
+			FileURL:     savedMsg.FileURL,
 			CreatedAt:   savedMsg.CreatedAt,
 			UnreadCount: savedMsg.UnreadCount,
 		},
