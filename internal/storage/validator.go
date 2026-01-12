@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"log"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
@@ -57,7 +58,9 @@ func ValidateFile(file multipart.File, header *multipart.FileHeader) error {
 	}
 
 	mimeType := http.DetectContentType(buffer)
+	log.Printf("[ValidateFile] filename=%s, ext=%s, detected_mime=%s", header.Filename, ext, mimeType)
 	if !allowedMimeTypes[mimeType] {
+		log.Printf("[ValidateFile] REJECTED: mime type %s not in allowed list", mimeType)
 		return ErrInvalidFileType
 	}
 
