@@ -120,12 +120,16 @@ class WebSocketService {
     this.send('leave_room', { room_id: roomId })
   }
 
-  sendMessage(roomId, content, messageType = 'text') {
-    this.send('send_message', {
+  sendMessage(roomId, content, messageType = 'text', fileUrl = null) {
+    const payload = {
       room_id: roomId,
       content,
       message_type: messageType
-    })
+    }
+    if (fileUrl) {
+      payload.file_url = fileUrl
+    }
+    this.send('send_message', payload)
   }
 
   setTyping(roomId, isTyping) {
