@@ -17,11 +17,11 @@ func NewMessageRepository(db *sql.DB) *MessageRepository {
 
 func (r *MessageRepository) Create(ctx context.Context, msg *models.Message) error {
 	query := `
-		INSERT INTO messages (room_id, sender_id, content, message_type, file_url)
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO messages (room_id, sender_id, content, message_type, file_url, thumbnail_url)
+		VALUES (?, ?, ?, ?, ?, ?)
 	`
 	result, err := r.db.ExecContext(ctx, query,
-		msg.RoomID, msg.SenderID, msg.Content, msg.MessageType, msg.FileURL,
+		msg.RoomID, msg.SenderID, msg.Content, msg.MessageType, msg.FileURL, msg.ThumbnailURL,
 	)
 	if err != nil {
 		return err
@@ -40,13 +40,13 @@ func (r *MessageRepository) Create(ctx context.Context, msg *models.Message) err
 
 func (r *MessageRepository) GetByID(ctx context.Context, id uint64) (*models.Message, error) {
 	query := `
-		SELECT id, room_id, sender_id, content, message_type, file_url, is_edited, is_deleted, created_at, updated_at
+		SELECT id, room_id, sender_id, content, message_type, file_url, thumbnail_url, is_edited, is_deleted, created_at, updated_at
 		FROM messages WHERE id = ?
 	`
 	msg := &models.Message{}
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&msg.ID, &msg.RoomID, &msg.SenderID, &msg.Content, &msg.MessageType,
-		&msg.FileURL, &msg.IsEdited, &msg.IsDeleted,
+		&msg.FileURL, &msg.ThumbnailURL, &msg.IsEdited, &msg.IsDeleted,
 		&msg.CreatedAt, &msg.UpdatedAt,
 	)
 	if err != nil {
@@ -57,7 +57,7 @@ func (r *MessageRepository) GetByID(ctx context.Context, id uint64) (*models.Mes
 
 func (r *MessageRepository) GetByRoomID(ctx context.Context, roomID uint64, limit, offset int) ([]*models.Message, error) {
 	query := `
-		SELECT id, room_id, sender_id, content, message_type, file_url, is_edited, is_deleted, created_at, updated_at
+		SELECT id, room_id, sender_id, content, message_type, file_url, thumbnail_url, is_edited, is_deleted, created_at, updated_at
 		FROM messages
 		WHERE room_id = ? AND is_deleted = FALSE
 		ORDER BY created_at DESC
@@ -74,7 +74,7 @@ func (r *MessageRepository) GetByRoomID(ctx context.Context, roomID uint64, limi
 		msg := &models.Message{}
 		err := rows.Scan(
 			&msg.ID, &msg.RoomID, &msg.SenderID, &msg.Content, &msg.MessageType,
-			&msg.FileURL, &msg.IsEdited, &msg.IsDeleted,
+			&msg.FileURL, &msg.ThumbnailURL, &msg.IsEdited, &msg.IsDeleted,
 			&msg.CreatedAt, &msg.UpdatedAt,
 		)
 		if err != nil {

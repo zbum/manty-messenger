@@ -34,6 +34,7 @@ export const useChatStore = defineStore('chat', {
           content: payload.content,
           message_type: payload.message_type,
           file_url: payload.file_url,
+          thumbnail_url: payload.thumbnail_url,
           created_at: payload.created_at,
           unread_count: payload.unread_count
         })
@@ -166,10 +167,10 @@ export const useChatStore = defineStore('chat', {
       websocket.sendMessage(this.currentRoom.id, content.trim())
     },
 
-    sendFileMessage(content, messageType, fileUrl) {
+    sendFileMessage(content, messageType, fileUrl, thumbnailUrl) {
       if (!this.currentRoom || !fileUrl) return
 
-      websocket.sendMessage(this.currentRoom.id, content, messageType, fileUrl)
+      websocket.sendMessage(this.currentRoom.id, content, messageType, fileUrl, thumbnailUrl)
     },
 
     addMessage(roomId, message) {

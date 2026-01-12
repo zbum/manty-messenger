@@ -46,6 +46,10 @@ func (s *MessageService) Create(ctx context.Context, roomID, senderID uint64, re
 		msg.FileURL = sql.NullString{String: req.FileURL, Valid: true}
 	}
 
+	if req.ThumbnailURL != "" {
+		msg.ThumbnailURL = sql.NullString{String: req.ThumbnailURL, Valid: true}
+	}
+
 	if err := s.messageRepo.Create(ctx, msg); err != nil {
 		return nil, err
 	}

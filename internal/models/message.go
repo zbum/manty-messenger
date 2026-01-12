@@ -15,28 +15,30 @@ const (
 )
 
 type Message struct {
-	ID          uint64         `json:"id"`
-	RoomID      uint64         `json:"room_id"`
-	SenderID    uint64         `json:"sender_id"`
-	Content     string         `json:"content"`
-	MessageType MessageType    `json:"message_type"`
-	FileURL     sql.NullString `json:"file_url"`
-	IsEdited    bool           `json:"is_edited"`
-	IsDeleted   bool           `json:"is_deleted"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	ID           uint64         `json:"id"`
+	RoomID       uint64         `json:"room_id"`
+	SenderID     uint64         `json:"sender_id"`
+	Content      string         `json:"content"`
+	MessageType  MessageType    `json:"message_type"`
+	FileURL      sql.NullString `json:"file_url"`
+	ThumbnailURL sql.NullString `json:"thumbnail_url"`
+	IsEdited     bool           `json:"is_edited"`
+	IsDeleted    bool           `json:"is_deleted"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
 type MessageResponse struct {
-	ID          uint64        `json:"id"`
-	RoomID      uint64        `json:"room_id"`
-	Sender      *UserResponse `json:"sender"`
-	Content     string        `json:"content"`
-	MessageType MessageType   `json:"message_type"`
-	FileURL     *string       `json:"file_url,omitempty"`
-	IsEdited    bool          `json:"is_edited"`
-	CreatedAt   time.Time     `json:"created_at"`
-	UnreadCount int           `json:"unread_count"`
+	ID           uint64        `json:"id"`
+	RoomID       uint64        `json:"room_id"`
+	Sender       *UserResponse `json:"sender"`
+	Content      string        `json:"content"`
+	MessageType  MessageType   `json:"message_type"`
+	FileURL      *string       `json:"file_url,omitempty"`
+	ThumbnailURL *string       `json:"thumbnail_url,omitempty"`
+	IsEdited     bool          `json:"is_edited"`
+	CreatedAt    time.Time     `json:"created_at"`
+	UnreadCount  int           `json:"unread_count"`
 }
 
 func (m *Message) ToResponse(sender *UserResponse, unreadCount int) *MessageResponse {
@@ -45,28 +47,35 @@ func (m *Message) ToResponse(sender *UserResponse, unreadCount int) *MessageResp
 		fileURL = &m.FileURL.String
 	}
 
+	var thumbnailURL *string
+	if m.ThumbnailURL.Valid {
+		thumbnailURL = &m.ThumbnailURL.String
+	}
+
 	content := m.Content
 	if m.IsDeleted {
 		content = "This message has been deleted"
 	}
 
 	return &MessageResponse{
-		ID:          m.ID,
-		RoomID:      m.RoomID,
-		Sender:      sender,
-		Content:     content,
-		MessageType: m.MessageType,
-		FileURL:     fileURL,
-		IsEdited:    m.IsEdited,
-		CreatedAt:   m.CreatedAt,
-		UnreadCount: unreadCount,
+		ID:           m.ID,
+		RoomID:       m.RoomID,
+		Sender:       sender,
+		Content:      content,
+		MessageType:  m.MessageType,
+		FileURL:      fileURL,
+		ThumbnailURL: thumbnailURL,
+		IsEdited:     m.IsEdited,
+		CreatedAt:    m.CreatedAt,
+		UnreadCount:  unreadCount,
 	}
 }
 
 type SendMessageRequest struct {
-	Content     string      `json:"content"`
-	MessageType MessageType `json:"message_type"`
-	FileURL     string      `json:"file_url,omitempty"`
+	Content      string      `json:"content"`
+	MessageType  MessageType `json:"message_type"`
+	FileURL      string      `json:"file_url,omitempty"`
+	ThumbnailURL string      `json:"thumbnail_url,omitempty"`
 }
 
 type UpdateMessageRequest struct {

@@ -58,15 +58,27 @@ func (s *LocalStorage) Save(ctx context.Context, file multipart.File, header *mu
 	}
 
 	mimeType := header.Header.Get("Content-Type")
+	fileURL := fmt.Sprintf("%s/%s/%s", s.baseURL, dateDir, storedName)
 
-	return &FileInfo{
+	fileInfo := &FileInfo{
 		ID:           fileID,
 		OriginalName: header.Filename,
 		StoredName:   storedName,
 		Size:         written,
 		MimeType:     mimeType,
-		URL:          fmt.Sprintf("%s/%s/%s", s.baseURL, dateDir, storedName),
-	}, nil
+		URL:          fileURL,
+	}
+
+	// Generate thumbnail for images
+	if IsImageFile(mimeType) {
+		thumbPath := GetThumbnailPath(destPath)
+		if err := GenerateThumbnail(destPath, thumbPath); err == nil {
+			thumbURL := GetThumbnailURL(fileURL)
+			fileInfo.ThumbnailURL = &thumbURL
+		}
+	}
+
+	return fileInfo, nil
 }
 
 func (s *LocalStorage) Delete(ctx context.Context, fileID string) error {

@@ -60,10 +60,11 @@ type LeaveRoomPayload struct {
 }
 
 type SendMessagePayload struct {
-	RoomID      uint64             `json:"room_id"`
-	Content     string             `json:"content"`
-	MessageType models.MessageType `json:"message_type"`
-	FileURL     string             `json:"file_url,omitempty"`
+	RoomID       uint64             `json:"room_id"`
+	Content      string             `json:"content"`
+	MessageType  models.MessageType `json:"message_type"`
+	FileURL      string             `json:"file_url,omitempty"`
+	ThumbnailURL string             `json:"thumbnail_url,omitempty"`
 }
 
 type TypingPayload struct {
@@ -78,14 +79,15 @@ type MarkReadPayload struct {
 
 // Payload types for server messages
 type NewMessagePayload struct {
-	ID          uint64               `json:"id"`
-	RoomID      uint64               `json:"room_id"`
-	Sender      *models.UserResponse `json:"sender"`
-	Content     string               `json:"content"`
-	MessageType models.MessageType   `json:"message_type"`
-	FileURL     *string              `json:"file_url,omitempty"`
-	CreatedAt   time.Time            `json:"created_at"`
-	UnreadCount int                  `json:"unread_count"`
+	ID           uint64               `json:"id"`
+	RoomID       uint64               `json:"room_id"`
+	Sender       *models.UserResponse `json:"sender"`
+	Content      string               `json:"content"`
+	MessageType  models.MessageType   `json:"message_type"`
+	FileURL      *string              `json:"file_url,omitempty"`
+	ThumbnailURL *string              `json:"thumbnail_url,omitempty"`
+	CreatedAt    time.Time            `json:"created_at"`
+	UnreadCount  int                  `json:"unread_count"`
 }
 
 type MessageReadPayload struct {

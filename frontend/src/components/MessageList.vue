@@ -58,6 +58,14 @@ const getFileUrl = (url) => {
   return url
 }
 
+const getThumbnailUrl = (message) => {
+  // Use thumbnail_url if available, otherwise fall back to file_url
+  if (message.thumbnail_url) {
+    return getFileUrl(message.thumbnail_url)
+  }
+  return getFileUrl(message.file_url)
+}
+
 const getFileName = (message) => {
   // Try to get filename from content or URL
   if (message.content && message.content !== message.file_url) {
@@ -78,7 +86,12 @@ const getFileExtension = (url) => {
 
 const downloadFile = (message) => {
   const url = getFileUrl(message.file_url)
-  window.open(url, '_blank')
+  const link = document.createElement('a')
+  link.href = url
+  link.download = getFileName(message)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
 const openImage = (message) => {
@@ -112,7 +125,7 @@ const openImage = (message) => {
 
         <!-- Image Message -->
         <div v-if="isImageMessage(message)" class="message-bubble image-bubble" @click="openImage(message)">
-          <img :src="getFileUrl(message.file_url)" :alt="message.content" class="message-image" />
+          <img :src="getThumbnailUrl(message)" :alt="message.content" class="message-image" />
           <div v-if="message.content && message.content !== getFileName(message)" class="image-caption">
             {{ message.content }}
           </div>

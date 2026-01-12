@@ -7,12 +7,13 @@ import (
 )
 
 type FileInfo struct {
-	ID           string `json:"id"`
-	OriginalName string `json:"original_name"`
-	StoredName   string `json:"stored_name"`
-	Size         int64  `json:"size"`
-	MimeType     string `json:"mime_type"`
-	URL          string `json:"url"`
+	ID           string  `json:"id"`
+	OriginalName string  `json:"original_name"`
+	StoredName   string  `json:"stored_name"`
+	Size         int64   `json:"size"`
+	MimeType     string  `json:"mime_type"`
+	URL          string  `json:"url"`
+	ThumbnailURL *string `json:"thumbnail_url,omitempty"`
 }
 
 type Storage interface {

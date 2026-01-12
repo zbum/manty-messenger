@@ -64,7 +64,8 @@ const sendFileMessage = async () => {
     emit('sendFile', {
       content,
       messageType,
-      fileUrl: result.url
+      fileUrl: result.url,
+      thumbnailUrl: result.thumbnail_url
     })
 
     // Reset state

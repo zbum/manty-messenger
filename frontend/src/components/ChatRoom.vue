@@ -26,8 +26,8 @@ const handleSendMessage = (content) => {
   chatStore.sendMessage(content)
 }
 
-const handleSendFile = ({ content, messageType, fileUrl }) => {
-  chatStore.sendFileMessage(content, messageType, fileUrl)
+const handleSendFile = ({ content, messageType, fileUrl, thumbnailUrl }) => {
+  chatStore.sendFileMessage(content, messageType, fileUrl, thumbnailUrl)
 }
 
 const handleTyping = (isTyping) => {

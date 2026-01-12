@@ -81,6 +81,11 @@ func main() {
 	}
 	log.Println("File storage initialized")
 
+	// Initialize thumbnail generator (libvips)
+	storage.InitThumbnail()
+	defer storage.ShutdownThumbnail()
+	log.Println("Thumbnail generator initialized")
+
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
 	roomRepo := repository.NewRoomRepository(db)

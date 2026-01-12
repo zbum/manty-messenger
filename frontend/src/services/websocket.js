@@ -120,7 +120,7 @@ class WebSocketService {
     this.send('leave_room', { room_id: roomId })
   }
 
-  sendMessage(roomId, content, messageType = 'text', fileUrl = null) {
+  sendMessage(roomId, content, messageType = 'text', fileUrl = null, thumbnailUrl = null) {
     const payload = {
       room_id: roomId,
       content,
@@ -128,6 +128,9 @@ class WebSocketService {
     }
     if (fileUrl) {
       payload.file_url = fileUrl
+    }
+    if (thumbnailUrl) {
+      payload.thumbnail_url = thumbnailUrl
     }
     this.send('send_message', payload)
   }
