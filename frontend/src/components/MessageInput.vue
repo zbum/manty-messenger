@@ -11,6 +11,7 @@ const selectedFile = ref(null)
 const filePreview = ref(null)
 const uploadProgress = ref(0)
 const isUploading = ref(false)
+const isDragging = ref(false)
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
 
@@ -93,26 +94,7 @@ const openFilePicker = () => {
 
 const handleFileSelect = (e) => {
   const file = e.target.files?.[0]
-  if (!file) return
-
-  if (file.size > MAX_FILE_SIZE) {
-    alert('파일 크기는 100MB를 초과할 수 없습니다.')
-    return
-  }
-
-  selectedFile.value = file
-
-  // Create preview for images
-  if (file.type.startsWith('image/')) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      filePreview.value = e.target.result
-    }
-    reader.readAsDataURL(file)
-  } else {
-    filePreview.value = null
-  }
-
+  processFile(file)
   // Reset input
   e.target.value = ''
 }
@@ -135,10 +117,84 @@ const getFileIcon = (mimeType) => {
   if (mimeType?.includes('sheet') || mimeType?.includes('excel')) return 'xls'
   return 'file'
 }
+
+// Drag and drop handlers
+const handleDragEnter = (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  if (!isUploading.value) {
+    isDragging.value = true
+  }
+}
+
+const handleDragOver = (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+}
+
+const handleDragLeave = (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  // Only set isDragging to false if we're leaving the container
+  if (e.currentTarget.contains(e.relatedTarget)) return
+  isDragging.value = false
+}
+
+const handleDrop = (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  isDragging.value = false
+
+  if (isUploading.value) return
+
+  const files = e.dataTransfer?.files
+  if (files && files.length > 0) {
+    processFile(files[0])
+  }
+}
+
+const processFile = (file) => {
+  if (!file) return
+
+  if (file.size > MAX_FILE_SIZE) {
+    alert('파일 크기는 100MB를 초과할 수 없습니다.')
+    return
+  }
+
+  selectedFile.value = file
+
+  // Create preview for images
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      filePreview.value = e.target.result
+    }
+    reader.readAsDataURL(file)
+  } else {
+    filePreview.value = null
+  }
+}
 </script>
 
 <template>
-  <div class="message-input-container">
+  <div
+    class="message-input-container"
+    :class="{ 'dragging': isDragging }"
+    @dragenter="handleDragEnter"
+    @dragover="handleDragOver"
+    @dragleave="handleDragLeave"
+    @drop="handleDrop"
+  >
+    <!-- Drag Overlay -->
+    <div v-if="isDragging" class="drag-overlay">
+      <div class="drag-content">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+        </svg>
+        <p>파일을 여기에 놓으세요</p>
+      </div>
+    </div>
+
     <!-- File Preview -->
     <div v-if="selectedFile" class="file-preview">
       <div class="preview-content">
@@ -209,9 +265,45 @@ const getFileIcon = (mimeType) => {
 
 <style scoped>
 .message-input-container {
+  position: relative;
   padding: 16px 20px;
   background: white;
   border-top: 1px solid #e0e0e0;
+  transition: background-color 0.2s;
+}
+
+.message-input-container.dragging {
+  background: #e3f2fd;
+}
+
+.drag-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 123, 255, 0.1);
+  border: 2px dashed #007bff;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.drag-content {
+  text-align: center;
+  color: #007bff;
+}
+
+.drag-content svg {
+  margin-bottom: 8px;
+}
+
+.drag-content p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .file-preview {
