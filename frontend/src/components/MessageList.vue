@@ -40,6 +40,64 @@ const isMyMessage = (message) => {
 const getInitial = (name) => {
   return name?.charAt(0).toUpperCase() || '?'
 }
+
+const isImageMessage = (message) => {
+  return message.message_type === 'image' && message.file_url
+}
+
+const isFileMessage = (message) => {
+  return message.message_type === 'file' && message.file_url
+}
+
+const getFileUrl = (url) => {
+  if (!url) return ''
+  // Handle relative URLs
+  if (url.startsWith('/')) {
+    return '/messenger' + url
+  }
+  return url
+}
+
+const getThumbnailUrl = (message) => {
+  // Use thumbnail_url if available, otherwise fall back to file_url
+  if (message.thumbnail_url) {
+    return getFileUrl(message.thumbnail_url)
+  }
+  return getFileUrl(message.file_url)
+}
+
+const getFileName = (message) => {
+  // Try to get filename from content or URL
+  if (message.content && message.content !== message.file_url) {
+    return message.content
+  }
+  if (message.file_url) {
+    const parts = message.file_url.split('/')
+    return parts[parts.length - 1]
+  }
+  return 'file'
+}
+
+const getFileExtension = (url) => {
+  if (!url) return ''
+  const parts = url.split('.')
+  return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : ''
+}
+
+const downloadFile = (message) => {
+  const url = getFileUrl(message.file_url)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = getFileName(message)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+const openImage = (message) => {
+  const url = getFileUrl(message.file_url)
+  window.open(url, '_blank')
+}
 </script>
 
 <template>
@@ -64,9 +122,36 @@ const getInitial = (name) => {
         <div v-if="!isMyMessage(message)" class="message-sender">
           {{ message.sender?.username }}
         </div>
-        <div class="message-bubble">
+
+        <!-- Image Message -->
+        <div v-if="isImageMessage(message)" class="message-bubble image-bubble" @click="openImage(message)">
+          <img :src="getThumbnailUrl(message)" :alt="message.content" class="message-image" />
+          <div v-if="message.content && message.content !== getFileName(message)" class="image-caption">
+            {{ message.content }}
+          </div>
+        </div>
+
+        <!-- File Message -->
+        <div v-else-if="isFileMessage(message)" class="message-bubble file-bubble" @click="downloadFile(message)">
+          <div class="file-content">
+            <div class="file-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/>
+              </svg>
+              <span class="file-ext">{{ getFileExtension(message.file_url) }}</span>
+            </div>
+            <div class="file-info">
+              <span class="file-name">{{ getFileName(message) }}</span>
+              <span class="file-action">클릭하여 다운로드</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Text Message -->
+        <div v-else class="message-bubble">
           {{ message.content }}
         </div>
+
         <div class="message-time">
           <span v-if="message.unread_count > 0" class="unread-count">{{ message.unread_count }}</span>
           {{ formatTime(message.created_at) }}
@@ -154,6 +239,94 @@ const getInitial = (name) => {
   color: white;
   border-radius: 18px;
   border-top-right-radius: 4px;
+}
+
+/* Image Message Styles */
+.image-bubble {
+  padding: 4px;
+  cursor: pointer;
+  max-width: 300px;
+}
+
+.my-message .image-bubble {
+  background: #007bff;
+}
+
+.message-image {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 14px;
+  display: block;
+  object-fit: cover;
+}
+
+.image-caption {
+  padding: 8px 12px 4px;
+  font-size: 14px;
+}
+
+/* File Message Styles */
+.file-bubble {
+  padding: 12px;
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.file-bubble:hover {
+  background: #f0f0f0;
+}
+
+.my-message .file-bubble:hover {
+  background: #0056b3;
+}
+
+.file-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.file-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: #e8f5e9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #2e7d32;
+  flex-shrink: 0;
+}
+
+.my-message .file-icon {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.file-ext {
+  font-size: 8px;
+  font-weight: bold;
+  margin-top: -4px;
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.file-name {
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-action {
+  font-size: 12px;
+  opacity: 0.7;
 }
 
 .message-time {

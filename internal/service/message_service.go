@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 
 	"Mmessenger/internal/models"
 	"Mmessenger/internal/repository"
@@ -39,6 +40,14 @@ func (s *MessageService) Create(ctx context.Context, roomID, senderID uint64, re
 
 	if msg.MessageType == "" {
 		msg.MessageType = models.MessageTypeText
+	}
+
+	if req.FileURL != "" {
+		msg.FileURL = sql.NullString{String: req.FileURL, Valid: true}
+	}
+
+	if req.ThumbnailURL != "" {
+		msg.ThumbnailURL = sql.NullString{String: req.ThumbnailURL, Valid: true}
 	}
 
 	if err := s.messageRepo.Create(ctx, msg); err != nil {

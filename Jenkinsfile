@@ -27,7 +27,12 @@ pipeline {
 
         stage('Test Backend') {
             steps {
-                sh 'go test ./... -v -cover'
+                sh '''
+                    docker run --rm -v $(pwd):/app -w /app golang:1.24-alpine sh -c "
+                        apk add --no-cache gcc musl-dev vips-dev pkgconfig &&
+                        CGO_ENABLED=1 go test ./... -v -cover
+                    "
+                '''
             }
         }
 
@@ -81,6 +86,7 @@ pipeline {
                         kubectl --kubeconfig=\$KUBECONFIG apply -f k8s/configmap.yaml
                         # Note: secret.yaml must be created manually before first deployment
                         # kubectl create secret generic mmessenger-secret --from-literal=DB_USER=xxx --from-literal=DB_PASS=xxx --from-literal=JWT_SECRET=xxx -n messenger
+                        kubectl --kubeconfig=\$KUBECONFIG apply -f k8s/storage-pvc.yaml
                         kubectl --kubeconfig=\$KUBECONFIG apply -f k8s/backend-deployment.yaml
                         kubectl --kubeconfig=\$KUBECONFIG apply -f k8s/backend-service.yaml
                         kubectl --kubeconfig=\$KUBECONFIG apply -f k8s/frontend-deployment.yaml

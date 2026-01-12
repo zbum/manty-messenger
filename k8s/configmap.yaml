@@ -15,3 +15,6 @@ data:
   CORS_ORIGINS: "https://messenger.manty.co.kr"
   JWT_ACCESS_EXPIRY: "15m"
   JWT_REFRESH_EXPIRY: "168h"
+  STORAGE_BASE_PATH: "/data/uploads"
+  STORAGE_MAX_FILE_SIZE: "104857600"
+  STORAGE_BASE_URL: "/files"

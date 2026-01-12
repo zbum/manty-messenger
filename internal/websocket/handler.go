@@ -184,15 +184,17 @@ func (h *Handler) handleSendMessage(client *Client, msg *WSMessage) {
 		return
 	}
 
-	if payload.Content == "" {
+	if payload.Content == "" && payload.FileURL == "" {
 		client.sendError("EMPTY_CONTENT", "Message content cannot be empty", msg.RequestID)
 		return
 	}
 
 	// Save message to database
 	req := &models.SendMessageRequest{
-		Content:     payload.Content,
-		MessageType: payload.MessageType,
+		Content:      payload.Content,
+		MessageType:  payload.MessageType,
+		FileURL:      payload.FileURL,
+		ThumbnailURL: payload.ThumbnailURL,
 	}
 
 	savedMsg, err := h.messageService.Create(context.Background(), payload.RoomID, client.UserID, req)
@@ -205,13 +207,15 @@ func (h *Handler) handleSendMessage(client *Client, msg *WSMessage) {
 	notification := &WSMessage{
 		Type: TypeNewMessage,
 		Payload: NewMessagePayload{
-			ID:          savedMsg.ID,
-			RoomID:      payload.RoomID,
-			Sender:      savedMsg.Sender,
-			Content:     savedMsg.Content,
-			MessageType: savedMsg.MessageType,
-			CreatedAt:   savedMsg.CreatedAt,
-			UnreadCount: savedMsg.UnreadCount,
+			ID:           savedMsg.ID,
+			RoomID:       payload.RoomID,
+			Sender:       savedMsg.Sender,
+			Content:      savedMsg.Content,
+			MessageType:  savedMsg.MessageType,
+			FileURL:      savedMsg.FileURL,
+			ThumbnailURL: savedMsg.ThumbnailURL,
+			CreatedAt:    savedMsg.CreatedAt,
+			UnreadCount:  savedMsg.UnreadCount,
 		},
 		Timestamp: time.Now(),
 	}

@@ -12,6 +12,7 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	Redis    RedisConfig
+	Storage  StorageConfig
 	JWT      JWTConfig
 	CORS     CORSConfig
 }
@@ -46,6 +47,12 @@ type RedisConfig struct {
 	DB       int
 }
 
+type StorageConfig struct {
+	BasePath    string
+	MaxFileSize int64
+	BaseURL     string
+}
+
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 
@@ -62,6 +69,11 @@ func Load() (*Config, error) {
 	redisDB, err := strconv.Atoi(getEnv("REDIS_DB", "0"))
 	if err != nil {
 		redisDB = 0
+	}
+
+	maxFileSize, err := strconv.ParseInt(getEnv("STORAGE_MAX_FILE_SIZE", "104857600"), 10, 64)
+	if err != nil {
+		maxFileSize = 100 * 1024 * 1024 // 100MB
 	}
 
 	return &Config{
@@ -81,6 +93,11 @@ func Load() (*Config, error) {
 			Port:     getEnv("REDIS_PORT", "6379"),
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       redisDB,
+		},
+		Storage: StorageConfig{
+			BasePath:    getEnv("STORAGE_BASE_PATH", "./uploads"),
+			MaxFileSize: maxFileSize,
+			BaseURL:     getEnv("STORAGE_BASE_URL", "/files"),
 		},
 		JWT: JWTConfig{
 			Secret:        getEnv("JWT_SECRET", "default-secret-change-me"),
