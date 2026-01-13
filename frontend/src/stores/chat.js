@@ -259,6 +259,18 @@ export const useChatStore = defineStore('chat', {
     markRead(roomId, messageId) {
       if (!roomId) return
       websocket.markRead(roomId, messageId)
+      // Decrease unread count locally since broadcast excludes self
+      this.decreaseUnreadCount(roomId)
+    },
+
+    reset() {
+      this.rooms = []
+      this.currentRoom = null
+      this.messages = {}
+      this.typingUsers = {}
+      this.loading = false
+      this.error = null
+      localStorage.removeItem('currentRoomId')
     }
   }
 })

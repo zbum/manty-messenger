@@ -8,12 +8,22 @@ class WebSocketService {
     this.isConnecting = false
     this.currentRoomId = null
     this.pendingMessages = []
+    this.intentionalDisconnect = false
+    this.currentToken = null
   }
 
   connect(token) {
+    // If connecting with a different token, disconnect first
+    if (this.currentToken && this.currentToken !== token && this.socket) {
+      this.disconnect()
+    }
+
     if (this.isConnecting || (this.socket && this.socket.readyState === WebSocket.OPEN)) {
       return Promise.resolve()
     }
+
+    this.intentionalDisconnect = false
+    this.currentToken = token
 
     this.isConnecting = true
 
@@ -49,7 +59,10 @@ class WebSocketService {
       this.socket.onclose = (event) => {
         console.log('WebSocket closed', event.code, event.reason)
         this.isConnecting = false
-        this.handleReconnect(token)
+        // Only reconnect if not intentionally disconnected (e.g., logout)
+        if (!this.intentionalDisconnect) {
+          this.handleReconnect(token)
+        }
       }
 
       this.socket.onerror = (error) => {
@@ -155,6 +168,7 @@ class WebSocketService {
   }
 
   disconnect() {
+    this.intentionalDisconnect = true
     if (this.socket) {
       this.socket.close()
       this.socket = null
@@ -163,6 +177,7 @@ class WebSocketService {
     this.reconnectAttempts = 0
     this.currentRoomId = null
     this.pendingMessages = []
+    this.currentToken = null
   }
 
   generateId() {
