@@ -14,6 +14,25 @@ const showInviteModal = ref(false)
 const currentRoom = computed(() => chatStore.currentRoom)
 const typingUsers = computed(() => chatStore.currentTypingUsers)
 
+// 연결 상태
+const isConnected = computed(() => chatStore.isConnected)
+const isConnecting = computed(() => chatStore.isConnecting)
+const isReconnecting = computed(() => chatStore.isReconnecting)
+const offlineQueueCount = computed(() => chatStore.offlineQueueCount)
+
+const connectionStatusText = computed(() => {
+  if (isReconnecting.value) return '재연결 중...'
+  if (isConnecting.value) return '연결 중...'
+  if (!isConnected.value) return '연결 끊김'
+  return ''
+})
+
+const connectionStatusClass = computed(() => {
+  if (isReconnecting.value || isConnecting.value) return 'connecting'
+  if (!isConnected.value) return 'disconnected'
+  return 'connected'
+})
+
 const typingText = computed(() => {
   if (typingUsers.value.length === 0) return ''
   if (typingUsers.value.length === 1) {
@@ -42,10 +61,22 @@ const handleInvited = (user) => {
 
 <template>
   <div class="chat-room">
+    <!-- Connection Status Banner -->
+    <div v-if="connectionStatusText" :class="['connection-banner', connectionStatusClass]">
+      <span class="connection-indicator"></span>
+      <span>{{ connectionStatusText }}</span>
+      <span v-if="offlineQueueCount > 0" class="offline-queue">
+        (대기 중 메시지 {{ offlineQueueCount }}개)
+      </span>
+    </div>
+
     <!-- Room Header -->
     <header class="room-header">
       <div class="room-title">
-        <h2>{{ currentRoom?.name }}</h2>
+        <div class="room-name-row">
+          <h2>{{ currentRoom?.name }}</h2>
+          <span :class="['connection-dot', connectionStatusClass]" :title="connectionStatusText || '연결됨'"></span>
+        </div>
         <span class="member-count">{{ currentRoom?.member_count || 1 }}명</span>
       </div>
       <button @click="showInviteModal = true" class="invite-button">
@@ -137,5 +168,81 @@ const handleInvited = (user) => {
   color: #666;
   font-style: italic;
   background: #fafafa;
+}
+
+/* Connection Status Styles */
+.connection-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.connection-banner.disconnected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.connection-banner.connecting {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.connection-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.connection-banner.disconnected .connection-indicator {
+  background: #dc2626;
+}
+
+.connection-banner.connecting .connection-indicator {
+  background: #f59e0b;
+  animation: pulse 1.5s infinite;
+}
+
+.offline-queue {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.room-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.connection-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.connection-dot.connected {
+  background: #22c55e;
+}
+
+.connection-dot.disconnected {
+  background: #dc2626;
+}
+
+.connection-dot.connecting {
+  background: #f59e0b;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 </style>

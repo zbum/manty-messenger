@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import api from '../services/api'
-import websocket from '../services/websocket'
+import websocket, { ConnectionState } from '../services/websocket'
 import { useAuthStore } from './auth'
 
 export const useChatStore = defineStore('chat', {
@@ -10,7 +10,10 @@ export const useChatStore = defineStore('chat', {
     messages: {},
     typingUsers: {},
     loading: false,
-    error: null
+    error: null,
+    // 웹소켓 연결 상태
+    connectionState: ConnectionState.DISCONNECTED,
+    offlineQueueCount: 0
   }),
 
   getters: {
@@ -21,11 +24,21 @@ export const useChatStore = defineStore('chat', {
     currentTypingUsers: (state) => {
       if (!state.currentRoom) return []
       return state.typingUsers[state.currentRoom.id] || []
-    }
+    },
+    isConnected: (state) => state.connectionState === ConnectionState.CONNECTED,
+    isConnecting: (state) => state.connectionState === ConnectionState.CONNECTING,
+    isReconnecting: (state) => state.connectionState === ConnectionState.RECONNECTING,
+    isDisconnected: (state) => state.connectionState === ConnectionState.DISCONNECTED
   },
 
   actions: {
     initWebSocketListeners() {
+      // 연결 상태 변경 리스너 등록
+      websocket.onConnectionStateChange((state) => {
+        this.connectionState = state
+        this.offlineQueueCount = websocket.getOfflineQueueCount()
+      })
+
       websocket.on('new_message', (payload) => {
         this.addMessage(payload.room_id, {
           id: payload.id,
@@ -270,6 +283,8 @@ export const useChatStore = defineStore('chat', {
       this.typingUsers = {}
       this.loading = false
       this.error = null
+      this.connectionState = ConnectionState.DISCONNECTED
+      this.offlineQueueCount = 0
       localStorage.removeItem('currentRoomId')
     }
   }
