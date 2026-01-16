@@ -18,6 +18,7 @@ const typingUsers = computed(() => chatStore.currentTypingUsers)
 const isConnected = computed(() => chatStore.isConnected)
 const isConnecting = computed(() => chatStore.isConnecting)
 const isReconnecting = computed(() => chatStore.isReconnecting)
+const isDisconnected = computed(() => chatStore.isDisconnected)
 const offlineQueueCount = computed(() => chatStore.offlineQueueCount)
 
 const connectionStatusText = computed(() => {
@@ -32,6 +33,13 @@ const connectionStatusClass = computed(() => {
   if (!isConnected.value) return 'disconnected'
   return 'connected'
 })
+
+// 재연결 버튼 표시 여부 (완전히 끊겼을 때만)
+const showReconnectButton = computed(() => isDisconnected.value)
+
+const handleReconnect = () => {
+  chatStore.reconnect()
+}
 
 const typingText = computed(() => {
   if (typingUsers.value.length === 0) return ''
@@ -68,6 +76,9 @@ const handleInvited = (user) => {
       <span v-if="offlineQueueCount > 0" class="offline-queue">
         (대기 중 메시지 {{ offlineQueueCount }}개)
       </span>
+      <button v-if="showReconnectButton" @click="handleReconnect" class="reconnect-button">
+        재연결
+      </button>
     </div>
 
     <!-- Room Header -->
@@ -209,6 +220,23 @@ const handleInvited = (user) => {
 .offline-queue {
   font-size: 12px;
   opacity: 0.8;
+}
+
+.reconnect-button {
+  margin-left: 8px;
+  padding: 4px 12px;
+  background: #991b1b;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.reconnect-button:hover {
+  background: #7f1d1d;
 }
 
 .room-name-row {

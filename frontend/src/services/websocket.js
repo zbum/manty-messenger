@@ -85,6 +85,9 @@ class WebSocketService {
     const wasReconnecting = this.reconnectAttempts > 0
     this.setConnectionState(wasReconnecting ? ConnectionState.RECONNECTING : ConnectionState.CONNECTING)
 
+    // 페이지 가시성/온라인 핸들러 설정
+    this.setupVisibilityHandler()
+
     return new Promise((resolve, reject) => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const host = window.location.host
@@ -259,14 +262,56 @@ class WebSocketService {
       this.reconnectAttempts++
       const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1)
       console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`)
-      setTimeout(() => this.connect(token), delay)
+      this.reconnectTimeout = setTimeout(() => this.connect(token), delay)
     } else {
       console.error('Max reconnection attempts reached')
+      this.setConnectionState(ConnectionState.DISCONNECTED)
     }
+  }
+
+  // 수동 재연결
+  reconnect() {
+    if (this.currentToken && !this.isConnecting && !this.isConnected) {
+      console.log('Manual reconnect triggered')
+      this.reconnectAttempts = 0
+      if (this.reconnectTimeout) {
+        clearTimeout(this.reconnectTimeout)
+        this.reconnectTimeout = null
+      }
+      this.connect(this.currentToken)
+    }
+  }
+
+  // 페이지 가시성 변경 시 재연결 시도
+  setupVisibilityHandler() {
+    if (this.visibilityHandlerSetup) return
+    this.visibilityHandlerSetup = true
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && this.currentToken) {
+        // 페이지가 다시 보이면 연결 상태 확인 후 재연결
+        if (!this.isConnected && !this.isConnecting) {
+          console.log('Page became visible, attempting reconnect')
+          this.reconnect()
+        }
+      }
+    })
+
+    // 온라인 상태로 돌아오면 재연결
+    window.addEventListener('online', () => {
+      if (this.currentToken && !this.isConnected && !this.isConnecting) {
+        console.log('Network online, attempting reconnect')
+        this.reconnect()
+      }
+    })
   }
 
   disconnect() {
     this.intentionalDisconnect = true
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+      this.reconnectTimeout = null
+    }
     if (this.socket) {
       this.socket.close()
       this.socket = null

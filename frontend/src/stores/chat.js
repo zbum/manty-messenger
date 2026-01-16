@@ -276,6 +276,11 @@ export const useChatStore = defineStore('chat', {
       this.decreaseUnreadCount(roomId)
     },
 
+    // 수동 재연결
+    reconnect() {
+      websocket.reconnect()
+    },
+
     reset() {
       this.rooms = []
       this.currentRoom = null
