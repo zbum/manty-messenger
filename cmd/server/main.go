@@ -4,6 +4,9 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/gorilla/mux"
 
@@ -184,8 +187,8 @@ func main() {
 		http.StripPrefix(cfg.Storage.BaseURL+"/",
 			http.FileServer(http.Dir(cfg.Storage.BasePath))))
 
-	// Serve static files for frontend
-	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./frontend/dist")))
+	// Serve static files for frontend with cache control
+	r.PathPrefix("/").Handler(newSPAHandler("./frontend/dist"))
 
 	// Start server
 	addr := cfg.Server.Host + ":" + cfg.Server.Port
@@ -197,4 +200,52 @@ func main() {
 	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+// spaHandler serves the SPA with proper cache headers
+type spaHandler struct {
+	staticPath string
+	indexPath  string
+}
+
+func newSPAHandler(staticPath string) *spaHandler {
+	return &spaHandler{
+		staticPath: staticPath,
+		indexPath:  filepath.Join(staticPath, "index.html"),
+	}
+}
+
+func (h *spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	path := filepath.Join(h.staticPath, r.URL.Path)
+
+	// Check if the file exists
+	fi, err := os.Stat(path)
+	if os.IsNotExist(err) || fi.IsDir() {
+		// File doesn't exist or is a directory, serve index.html (SPA fallback)
+		h.serveIndex(w, r)
+		return
+	}
+
+	// Check if it's index.html or HTML file
+	if strings.HasSuffix(r.URL.Path, ".html") || r.URL.Path == "/" {
+		h.serveIndex(w, r)
+		return
+	}
+
+	// For JS/CSS with hash in filename, allow long cache
+	if strings.Contains(r.URL.Path, "/assets/") {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	}
+
+	// Serve static file
+	http.ServeFile(w, r, path)
+}
+
+func (h *spaHandler) serveIndex(w http.ResponseWriter, r *http.Request) {
+	// Prevent caching of index.html
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+
+	http.ServeFile(w, r, h.indexPath)
 }
