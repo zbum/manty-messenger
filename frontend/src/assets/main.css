@@ -90,3 +90,40 @@ body {
 .offline-indicator {
   background-color: #6c757d;
 }
+
+/* Mobile-first responsive utilities */
+:root {
+  --mobile-breakpoint: 768px;
+}
+
+/* Safe area for mobile devices */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Responsive font sizing */
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+
+  .btn {
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+
+  .input {
+    padding: 14px;
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+}
+
+/* Touch-friendly utilities */
+@media (hover: none) and (pointer: coarse) {
+  .btn, button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

@@ -176,4 +176,56 @@ const handleSubmit = async () => {
 .auth-link a:hover {
   text-decoration: underline;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .auth-container {
+    padding: 20px;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .auth-card {
+    margin: 0;
+    padding: 24px 20px;
+  }
+
+  .auth-title {
+    font-size: 24px;
+    margin-bottom: 24px;
+  }
+
+  .auth-form {
+    gap: 16px;
+  }
+
+  .form-group label {
+    font-size: 14px;
+  }
+
+  .submit-btn {
+    padding: 16px;
+    font-size: 16px;
+    margin-top: 8px;
+  }
+
+  .auth-link {
+    margin-top: 16px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 375px) {
+  .auth-container {
+    padding: 16px;
+  }
+
+  .auth-card {
+    padding: 20px 16px;
+  }
+
+  .auth-title {
+    font-size: 22px;
+  }
+}
 </style>

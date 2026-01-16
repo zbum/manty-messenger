@@ -270,4 +270,87 @@ const getInitial = (name) => {
   font-size: 14px;
   margin-top: 12px;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .modal-backdrop {
+    align-items: flex-end;
+  }
+
+  .modal-content {
+    max-width: 100%;
+    margin: 0;
+    border-radius: 16px 16px 0 0;
+    max-height: 85vh;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    animation: slideUpMobile 0.3s ease-out;
+  }
+
+  @keyframes slideUpMobile {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .modal-header {
+    margin-bottom: 16px;
+  }
+
+  .modal-header h2 {
+    font-size: 18px;
+  }
+
+  .close-button {
+    font-size: 24px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .search-section {
+    margin-bottom: 12px;
+  }
+
+  .results-section {
+    min-height: 150px;
+    max-height: 50vh;
+  }
+
+  .user-item {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .user-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .user-name {
+    font-size: 14px;
+  }
+
+  .user-email {
+    font-size: 12px;
+  }
+
+  .invite-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .loading,
+  .hint,
+  .no-results {
+    padding: 30px 20px;
+  }
+}
 </style>

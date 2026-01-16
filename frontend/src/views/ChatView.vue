@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
@@ -12,16 +12,41 @@ const authStore = useAuthStore()
 const chatStore = useChatStore()
 
 const showCreateModal = ref(false)
+const showSidebar = ref(true)
 
 const hasCurrentRoom = computed(() => !!chatStore.currentRoom)
 
+// Mobile detection
+const isMobile = ref(window.innerWidth <= 768)
+
+const handleResize = () => {
+  isMobile.value = window.innerWidth <= 768
+  // On desktop, always show sidebar
+  if (!isMobile.value) {
+    showSidebar.value = true
+  }
+}
+
 onMounted(async () => {
+  window.addEventListener('resize', handleResize)
   await chatStore.fetchRooms()
   await chatStore.restoreLastRoom()
+  // If on mobile and has current room, hide sidebar
+  if (isMobile.value && hasCurrentRoom.value) {
+    showSidebar.value = false
+  }
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
   chatStore.leaveCurrentRoom()
+})
+
+// Watch for room changes on mobile
+watch(hasCurrentRoom, (hasRoom) => {
+  if (isMobile.value && hasRoom) {
+    showSidebar.value = false
+  }
 })
 
 const handleLogout = async () => {
@@ -33,12 +58,30 @@ const handleRoomCreated = (room) => {
   showCreateModal.value = false
   chatStore.joinRoom(room)
 }
+
+const toggleSidebar = () => {
+  showSidebar.value = !showSidebar.value
+}
+
+const handleBackToList = () => {
+  showSidebar.value = true
+}
+
+// Expose for ChatRoom component
+defineExpose({ handleBackToList, isMobile })
 </script>
 
 <template>
-  <div class="chat-layout">
+  <div class="chat-layout" :class="{ 'mobile': isMobile, 'sidebar-open': showSidebar }">
+    <!-- Mobile Overlay -->
+    <div
+      v-if="isMobile && showSidebar && hasCurrentRoom"
+      class="sidebar-overlay"
+      @click="showSidebar = false"
+    ></div>
+
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ 'hidden': isMobile && !showSidebar }">
       <div class="sidebar-header">
         <div class="user-info">
           <div class="avatar">
@@ -61,8 +104,8 @@ const handleRoomCreated = (room) => {
     </aside>
 
     <!-- Main Chat Area -->
-    <main class="chat-main">
-      <ChatRoom v-if="hasCurrentRoom" />
+    <main class="chat-main" :class="{ 'hidden': isMobile && showSidebar && !hasCurrentRoom }">
+      <ChatRoom v-if="hasCurrentRoom" @back="handleBackToList" :is-mobile="isMobile" />
       <div v-else class="no-room-selected">
         <div class="no-room-content">
           <h2>채팅방을 선택하세요</h2>
@@ -150,5 +193,84 @@ const handleRoomCreated = (room) => {
 .no-room-content h2 {
   margin-bottom: 10px;
   color: #333;
+}
+
+/* Mobile Overlay */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 99;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .chat-layout {
+    position: relative;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 320px;
+    z-index: 100;
+    transform: translateX(0);
+    transition: transform 0.3s ease;
+  }
+
+  .sidebar.hidden {
+    transform: translateX(-100%);
+  }
+
+  .chat-main {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .chat-main.hidden {
+    display: none;
+  }
+
+  .no-room-selected {
+    display: none;
+  }
+
+  .chat-layout.mobile.sidebar-open .no-room-selected {
+    display: flex;
+  }
+
+  .sidebar-header {
+    padding: 12px 16px;
+  }
+
+  .logout-btn {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  .sidebar-actions {
+    padding: 12px 16px;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 375px) {
+  .sidebar {
+    max-width: 100%;
+  }
+
+  .username {
+    font-size: 14px;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 </style>
