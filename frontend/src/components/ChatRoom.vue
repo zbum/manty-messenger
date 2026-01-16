@@ -6,6 +6,15 @@ import MessageList from './MessageList.vue'
 import MessageInput from './MessageInput.vue'
 import InviteMemberModal from './InviteMemberModal.vue'
 
+const props = defineProps({
+  isMobile: {
+    type: Boolean,
+    default: false
+  }
+})
+
+const emit = defineEmits(['back'])
+
 const chatStore = useChatStore()
 const authStore = useAuthStore()
 
@@ -84,6 +93,12 @@ const handleInvited = (user) => {
     <!-- Room Header -->
     <header class="room-header">
       <div class="room-title">
+        <!-- Back button for mobile -->
+        <button v-if="isMobile" @click="emit('back')" class="back-button">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+          </svg>
+        </button>
         <div class="room-name-row">
           <h2>{{ currentRoom?.name }}</h2>
           <span :class="['connection-dot', connectionStatusClass]" :title="connectionStatusText || '연결됨'"></span>
@@ -271,6 +286,84 @@ const handleInvited = (user) => {
   }
   50% {
     opacity: 0.5;
+  }
+}
+
+/* Back button for mobile */
+.back-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #333;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 4px;
+  transition: background-color 0.2s;
+}
+
+.back-button:hover {
+  background: #f0f0f0;
+}
+
+.back-button:active {
+  background: #e0e0e0;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .room-header {
+    padding: 12px 16px;
+  }
+
+  .room-title {
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .room-title h2 {
+    font-size: 16px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 150px;
+  }
+
+  .member-count {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+
+  .invite-button {
+    padding: 6px 12px;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .typing-indicator {
+    padding: 6px 16px;
+    font-size: 12px;
+  }
+
+  .connection-banner {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 375px) {
+  .room-title h2 {
+    max-width: 100px;
+  }
+
+  .invite-button {
+    padding: 6px 10px;
+    font-size: 12px;
   }
 }
 </style>

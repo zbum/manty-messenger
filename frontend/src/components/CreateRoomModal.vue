@@ -227,4 +227,73 @@ const handleBackdropClick = (e) => {
   gap: 12px;
   margin-top: 10px;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .modal-backdrop {
+    align-items: flex-end;
+  }
+
+  .modal-content {
+    max-width: 100%;
+    margin: 0;
+    border-radius: 16px 16px 0 0;
+    max-height: 90vh;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    animation: slideUpMobile 0.3s ease-out;
+  }
+
+  @keyframes slideUpMobile {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .modal-header {
+    margin-bottom: 20px;
+  }
+
+  .modal-header h2 {
+    font-size: 18px;
+  }
+
+  .close-button {
+    font-size: 24px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-form {
+    gap: 16px;
+  }
+
+  .radio-group {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .radio-label {
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+    gap: 10px;
+  }
+
+  .modal-actions .btn {
+    width: 100%;
+    padding: 14px;
+  }
+}
 </style>

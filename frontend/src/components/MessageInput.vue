@@ -557,4 +557,72 @@ const handlePaste = (e) => {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .message-input-container {
+    padding: 12px 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .input-wrapper {
+    padding: 6px 6px 6px 10px;
+    gap: 6px;
+  }
+
+  .attach-button {
+    width: 32px;
+    height: 32px;
+  }
+
+  .send-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .message-textarea {
+    font-size: 16px; /* Prevents iOS zoom */
+    padding: 6px 0;
+  }
+
+  .file-preview {
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+
+  .preview-image {
+    max-width: 150px;
+    max-height: 100px;
+  }
+
+  .file-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .file-name {
+    font-size: 13px;
+    max-width: 150px;
+  }
+
+  .drag-overlay {
+    display: none;
+  }
+}
+
+@media (max-width: 375px) {
+  .message-input-container {
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .file-name {
+    max-width: 120px;
+  }
+
+  .preview-image {
+    max-width: 120px;
+    max-height: 80px;
+  }
+}
 </style>

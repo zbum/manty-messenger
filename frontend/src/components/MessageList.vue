@@ -355,4 +355,82 @@ const openImage = (message) => {
   border-radius: 10px;
   margin-right: 4px;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .messages-container {
+    padding: 12px;
+  }
+
+  .message-wrapper {
+    max-width: 85%;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .message-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+
+  .message-bubble {
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 15px;
+  }
+
+  .image-bubble {
+    max-width: 240px;
+  }
+
+  .message-image {
+    max-height: 200px;
+  }
+
+  .file-bubble {
+    padding: 10px;
+    min-width: 180px;
+  }
+
+  .file-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .file-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .file-name {
+    font-size: 13px;
+  }
+
+  .file-action {
+    font-size: 11px;
+  }
+
+  .message-sender {
+    font-size: 11px;
+  }
+
+  .message-time {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 375px) {
+  .message-wrapper {
+    max-width: 90%;
+  }
+
+  .image-bubble {
+    max-width: 200px;
+  }
+
+  .file-bubble {
+    min-width: 160px;
+  }
+}
 </style>
