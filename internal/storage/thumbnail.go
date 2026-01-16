@@ -47,6 +47,12 @@ func GenerateThumbnail(srcPath, dstPath string) error {
 	}
 	defer image.Close()
 
+	// Auto-rotate based on EXIF orientation (important for mobile photos)
+	err = image.AutoRotate()
+	if err != nil {
+		return fmt.Errorf("failed to auto-rotate image: %w", err)
+	}
+
 	// Calculate thumbnail dimensions maintaining aspect ratio
 	width := image.Width()
 	height := image.Height()
