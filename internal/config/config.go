@@ -15,6 +15,13 @@ type Config struct {
 	Storage  StorageConfig
 	JWT      JWTConfig
 	CORS     CORSConfig
+	Keycloak KeycloakConfig
+}
+
+type KeycloakConfig struct {
+	URL      string
+	Realm    string
+	ClientID string
 }
 
 type ServerConfig struct {
@@ -106,6 +113,11 @@ func Load() (*Config, error) {
 		},
 		CORS: CORSConfig{
 			AllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173"),
+		},
+		Keycloak: KeycloakConfig{
+			URL:      getEnv("KEYCLOAK_URL", "https://keycloak.manty.co.kr"),
+			Realm:    getEnv("KEYCLOAK_REALM", "manty"),
+			ClientID: getEnv("KEYCLOAK_CLIENT_ID", "manty-messenger"),
 		},
 	}, nil
 }

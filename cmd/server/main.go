@@ -19,7 +19,7 @@ import (
 	"Mmessenger/internal/service"
 	"Mmessenger/internal/storage"
 	"Mmessenger/internal/websocket"
-	"Mmessenger/pkg/jwt"
+	"Mmessenger/pkg/keycloak"
 )
 
 func main() {
@@ -36,8 +36,9 @@ func main() {
 	log.Printf("  Server: %s:%s", cfg.Server.Host, cfg.Server.Port)
 	log.Printf("  Database: %s@%s:%s/%s", cfg.Database.User, cfg.Database.Host, cfg.Database.Port, cfg.Database.Name)
 	log.Printf("  CORS Origins: %v", cfg.CORS.AllowedOrigins)
-	log.Printf("  JWT Access Expiry: %s", cfg.JWT.AccessExpiry)
-	log.Printf("  JWT Refresh Expiry: %s", cfg.JWT.RefreshExpiry)
+	log.Printf("  Keycloak URL: %s", cfg.Keycloak.URL)
+	log.Printf("  Keycloak Realm: %s", cfg.Keycloak.Realm)
+	log.Printf("  Keycloak Client ID: %s", cfg.Keycloak.ClientID)
 
 	// Connect to database
 	log.Printf("Connecting to database %s:%s...", cfg.Database.Host, cfg.Database.Port)
@@ -95,11 +96,12 @@ func main() {
 	messageRepo := repository.NewMessageRepository(db)
 	memberRepo := repository.NewRoomMemberRepository(db)
 
-	// Initialize JWT service
-	jwtService := jwt.NewService(&cfg.JWT)
+	// Initialize Keycloak service
+	keycloakService := keycloak.NewService(&cfg.Keycloak)
+	log.Println("Keycloak service initialized")
 
 	// Initialize services
-	authService := service.NewAuthService(userRepo, jwtService, db)
+	authService := service.NewAuthService(userRepo, db)
 	roomService := service.NewRoomService(roomRepo, memberRepo, userRepo)
 	messageService := service.NewMessageService(messageRepo, memberRepo, userRepo)
 
@@ -115,10 +117,25 @@ func main() {
 	fileHandler := handler.NewFileHandler(localStorage, cfg.Storage.MaxFileSize)
 
 	// Initialize WebSocket handler
-	wsHandler := websocket.NewHandler(hub, jwtService, messageService, memberRepo, userRepo, roomRepo)
+	wsHandler := websocket.NewHandler(hub, keycloakService, authService, messageService, memberRepo, userRepo, roomRepo)
+
+	// User lookup function for auth middleware
+	userLookupFunc := func(ctx context.Context, keycloakClaims *keycloak.Claims) (*middleware.UserClaims, error) {
+		user, err := authService.GetOrCreateUserFromKeycloak(ctx, keycloakClaims)
+		if err != nil {
+			return nil, err
+		}
+		return &middleware.UserClaims{
+			UserID:            user.ID,
+			KeycloakID:        keycloakClaims.Subject,
+			Email:             keycloakClaims.Email,
+			Username:          user.Username,
+			PreferredUsername: keycloakClaims.PreferredUsername,
+		}, nil
+	}
 
 	// Initialize middleware
-	authMiddleware := middleware.NewAuthMiddleware(jwtService)
+	authMiddleware := middleware.NewAuthMiddleware(keycloakService, userLookupFunc)
 	corsMiddleware := middleware.NewCORSMiddleware(cfg.CORS.AllowedOrigins)
 
 	// Setup router
@@ -137,11 +154,6 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
 	}).Methods("GET")
-
-	// Auth routes (public)
-	api.HandleFunc("/auth/register", authHandler.Register).Methods("POST")
-	api.HandleFunc("/auth/login", authHandler.Login).Methods("POST")
-	api.HandleFunc("/auth/refresh", authHandler.RefreshToken).Methods("POST")
 
 	// Protected auth routes
 	authProtected := api.PathPrefix("/auth").Subrouter()
