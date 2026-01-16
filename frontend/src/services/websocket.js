@@ -1,3 +1,13 @@
+// 연결 상태 상수
+const ConnectionState = {
+  DISCONNECTED: 'disconnected',
+  CONNECTING: 'connecting',
+  CONNECTED: 'connected',
+  RECONNECTING: 'reconnecting'
+}
+
+const OFFLINE_QUEUE_KEY = 'websocket_offline_queue'
+
 class WebSocketService {
   constructor() {
     this.socket = null
@@ -10,6 +20,52 @@ class WebSocketService {
     this.pendingMessages = []
     this.intentionalDisconnect = false
     this.currentToken = null
+    this.connectionState = ConnectionState.DISCONNECTED
+    this.connectionStateListeners = []
+
+    // 오프라인 큐를 localStorage에서 복구
+    this.offlineQueue = this.loadOfflineQueue()
+  }
+
+  // 오프라인 큐 localStorage에서 로드
+  loadOfflineQueue() {
+    try {
+      const saved = localStorage.getItem(OFFLINE_QUEUE_KEY)
+      return saved ? JSON.parse(saved) : []
+    } catch (e) {
+      console.error('Failed to load offline queue', e)
+      return []
+    }
+  }
+
+  // 오프라인 큐 localStorage에 저장
+  saveOfflineQueue() {
+    try {
+      localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(this.offlineQueue))
+    } catch (e) {
+      console.error('Failed to save offline queue', e)
+    }
+  }
+
+  // 연결 상태 변경 알림
+  setConnectionState(state) {
+    if (this.connectionState !== state) {
+      this.connectionState = state
+      this.connectionStateListeners.forEach(listener => listener(state))
+    }
+  }
+
+  // 연결 상태 변경 리스너 등록
+  onConnectionStateChange(callback) {
+    this.connectionStateListeners.push(callback)
+    // 현재 상태 즉시 전달
+    callback(this.connectionState)
+    return () => {
+      const index = this.connectionStateListeners.indexOf(callback)
+      if (index > -1) {
+        this.connectionStateListeners.splice(index, 1)
+      }
+    }
   }
 
   connect(token) {
@@ -26,6 +82,11 @@ class WebSocketService {
     this.currentToken = token
 
     this.isConnecting = true
+    const wasReconnecting = this.reconnectAttempts > 0
+    this.setConnectionState(wasReconnecting ? ConnectionState.RECONNECTING : ConnectionState.CONNECTING)
+
+    // 페이지 가시성/온라인 핸들러 설정
+    this.setupVisibilityHandler()
 
     return new Promise((resolve, reject) => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -36,9 +97,10 @@ class WebSocketService {
 
       this.socket.onopen = () => {
         console.log('WebSocket connected')
-        const wasReconnecting = this.reconnectAttempts > 0
+        const wasReconnectingNow = this.reconnectAttempts > 0
         this.reconnectAttempts = 0
         this.isConnecting = false
+        this.setConnectionState(ConnectionState.CONNECTED)
 
         // Send pending messages (for initial connection)
         while (this.pendingMessages.length > 0) {
@@ -47,8 +109,11 @@ class WebSocketService {
           this.socket.send(JSON.stringify(msg))
         }
 
+        // Send offline queued messages (from localStorage)
+        this.flushOfflineQueue()
+
         // Rejoin room only if reconnecting (not initial connection)
-        if (wasReconnecting && this.currentRoomId) {
+        if (wasReconnectingNow && this.currentRoomId) {
           console.log('Rejoining room after reconnect:', this.currentRoomId)
           this.send('join_room', { room_id: this.currentRoomId })
         }
@@ -61,7 +126,10 @@ class WebSocketService {
         this.isConnecting = false
         // Only reconnect if not intentionally disconnected (e.g., logout)
         if (!this.intentionalDisconnect) {
+          this.setConnectionState(ConnectionState.RECONNECTING)
           this.handleReconnect(token)
+        } else {
+          this.setConnectionState(ConnectionState.DISCONNECTED)
         }
       }
 
@@ -145,7 +213,40 @@ class WebSocketService {
     if (thumbnailUrl) {
       payload.thumbnail_url = thumbnailUrl
     }
+
+    // 연결이 안 되어 있으면 오프라인 큐에 저장
+    if (!this.isConnected && !this.isConnecting) {
+      const message = {
+        type: 'send_message',
+        payload,
+        timestamp: new Date().toISOString(),
+        request_id: this.generateId()
+      }
+      console.log('Saving message to offline queue:', message.type)
+      this.offlineQueue.push(message)
+      this.saveOfflineQueue()
+      return
+    }
+
     this.send('send_message', payload)
+  }
+
+  // 오프라인 큐의 메시지들을 전송
+  flushOfflineQueue() {
+    if (this.offlineQueue.length === 0) return
+
+    console.log(`Sending ${this.offlineQueue.length} offline queued messages`)
+    while (this.offlineQueue.length > 0) {
+      const msg = this.offlineQueue.shift()
+      console.log('Sending offline queued message:', msg.type)
+      this.socket.send(JSON.stringify(msg))
+    }
+    this.saveOfflineQueue()
+  }
+
+  // 오프라인 큐 개수 반환
+  getOfflineQueueCount() {
+    return this.offlineQueue.length
   }
 
   setTyping(roomId, isTyping) {
@@ -161,14 +262,56 @@ class WebSocketService {
       this.reconnectAttempts++
       const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1)
       console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`)
-      setTimeout(() => this.connect(token), delay)
+      this.reconnectTimeout = setTimeout(() => this.connect(token), delay)
     } else {
       console.error('Max reconnection attempts reached')
+      this.setConnectionState(ConnectionState.DISCONNECTED)
     }
+  }
+
+  // 수동 재연결
+  reconnect() {
+    if (this.currentToken && !this.isConnecting && !this.isConnected) {
+      console.log('Manual reconnect triggered')
+      this.reconnectAttempts = 0
+      if (this.reconnectTimeout) {
+        clearTimeout(this.reconnectTimeout)
+        this.reconnectTimeout = null
+      }
+      this.connect(this.currentToken)
+    }
+  }
+
+  // 페이지 가시성 변경 시 재연결 시도
+  setupVisibilityHandler() {
+    if (this.visibilityHandlerSetup) return
+    this.visibilityHandlerSetup = true
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && this.currentToken) {
+        // 페이지가 다시 보이면 연결 상태 확인 후 재연결
+        if (!this.isConnected && !this.isConnecting) {
+          console.log('Page became visible, attempting reconnect')
+          this.reconnect()
+        }
+      }
+    })
+
+    // 온라인 상태로 돌아오면 재연결
+    window.addEventListener('online', () => {
+      if (this.currentToken && !this.isConnected && !this.isConnecting) {
+        console.log('Network online, attempting reconnect')
+        this.reconnect()
+      }
+    })
   }
 
   disconnect() {
     this.intentionalDisconnect = true
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+      this.reconnectTimeout = null
+    }
     if (this.socket) {
       this.socket.close()
       this.socket = null
@@ -178,6 +321,8 @@ class WebSocketService {
     this.currentRoomId = null
     this.pendingMessages = []
     this.currentToken = null
+    this.setConnectionState(ConnectionState.DISCONNECTED)
+    this.connectionStateListeners = []
   }
 
   generateId() {
@@ -193,4 +338,7 @@ class WebSocketService {
   }
 }
 
-export default new WebSocketService()
+const websocketService = new WebSocketService()
+
+export { ConnectionState }
+export default websocketService
