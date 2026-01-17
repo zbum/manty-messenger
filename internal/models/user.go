@@ -15,6 +15,7 @@ const (
 
 type User struct {
 	ID           uint64         `json:"id"`
+	KeycloakID   sql.NullString `json:"keycloak_id,omitempty"`
 	Email        string         `json:"email"`
 	Username     string         `json:"username"`
 	PasswordHash string         `json:"-"`

@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { isAuthenticated } from '../services/keycloak'
 
 const routes = [
   {
@@ -10,12 +10,6 @@ const routes = [
     path: '/login',
     name: 'login',
     component: () => import('../views/LoginView.vue'),
-    meta: { guest: true }
-  },
-  {
-    path: '/register',
-    name: 'register',
-    component: () => import('../views/RegisterView.vue'),
     meta: { guest: true }
   },
   {
@@ -31,16 +25,14 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, from, next) => {
-  const authStore = useAuthStore()
-
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next('/login')
-  } else if (to.meta.guest && authStore.isAuthenticated) {
+router.beforeEach(async (to, from, next) => {
+  // Guest routes redirect to chat if authenticated
+  if (to.meta.guest && isAuthenticated()) {
     next('/chat')
-  } else {
-    next()
+    return
   }
+
+  next()
 })
 
 export default router

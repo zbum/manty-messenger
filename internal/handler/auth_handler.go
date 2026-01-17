@@ -1,12 +1,10 @@
 package handler
 
 import (
-	"encoding/json"
-	"errors"
+	"log"
 	"net/http"
 
 	"Mmessenger/internal/middleware"
-	"Mmessenger/internal/models"
 	"Mmessenger/internal/service"
 )
 
@@ -18,54 +16,24 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 	return &AuthHandler{authService: authService}
 }
 
-func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-	var req models.CreateUserRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body")
+func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetUserFromContext(r.Context())
+	if claims == nil {
+		log.Printf("[AuthHandler.Me] No claims in context")
+		respondError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
-	if req.Email == "" || req.Username == "" || req.Password == "" {
-		respondError(w, http.StatusBadRequest, "Email, username, and password are required")
-		return
-	}
+	log.Printf("[AuthHandler.Me] UserID: %d, KeycloakID: %s", claims.UserID, claims.KeycloakID)
 
-	resp, err := h.authService.Register(r.Context(), &req)
+	user, err := h.authService.GetUserByID(r.Context(), claims.UserID)
 	if err != nil {
-		if errors.Is(err, service.ErrUserAlreadyExists) {
-			respondError(w, http.StatusConflict, "User already exists")
-			return
-		}
-		respondError(w, http.StatusInternalServerError, "Failed to register user")
+		log.Printf("[AuthHandler.Me] Error getting user: %v, UserID: %d", err, claims.UserID)
+		respondError(w, http.StatusInternalServerError, "Failed to get user")
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, resp)
-}
-
-func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var req models.LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-
-	if req.Email == "" || req.Password == "" {
-		respondError(w, http.StatusBadRequest, "Email and password are required")
-		return
-	}
-
-	resp, err := h.authService.Login(r.Context(), &req)
-	if err != nil {
-		if errors.Is(err, service.ErrInvalidCredentials) {
-			respondError(w, http.StatusUnauthorized, "Invalid email or password")
-			return
-		}
-		respondError(w, http.StatusInternalServerError, "Failed to login")
-		return
-	}
-
-	respondJSON(w, http.StatusOK, resp)
+	respondJSON(w, http.StatusOK, user.ToResponse())
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -75,57 +43,11 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		RefreshToken string `json:"refresh_token"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-
-	if err := h.authService.Logout(r.Context(), claims.UserID, req.RefreshToken); err != nil {
+	if err := h.authService.Logout(r.Context(), claims.UserID); err != nil {
+		log.Printf("[AuthHandler.Logout] Error: %v, UserID: %d", err, claims.UserID)
 		respondError(w, http.StatusInternalServerError, "Failed to logout")
 		return
 	}
 
 	respondJSON(w, http.StatusOK, map[string]string{"message": "Logged out successfully"})
-}
-
-func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		RefreshToken string `json:"refresh_token"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-
-	if req.RefreshToken == "" {
-		respondError(w, http.StatusBadRequest, "Refresh token is required")
-		return
-	}
-
-	resp, err := h.authService.RefreshToken(r.Context(), req.RefreshToken)
-	if err != nil {
-		respondError(w, http.StatusUnauthorized, "Invalid or expired refresh token")
-		return
-	}
-
-	respondJSON(w, http.StatusOK, resp)
-}
-
-func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.GetUserFromContext(r.Context())
-	if claims == nil {
-		respondError(w, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
-	user, err := h.authService.GetUserByID(r.Context(), claims.UserID)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to get user")
-		return
-	}
-
-	respondJSON(w, http.StatusOK, user.ToResponse())
 }

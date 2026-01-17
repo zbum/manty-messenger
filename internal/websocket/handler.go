@@ -12,7 +12,7 @@ import (
 	"Mmessenger/internal/models"
 	"Mmessenger/internal/repository"
 	"Mmessenger/internal/service"
-	"Mmessenger/pkg/jwt"
+	"Mmessenger/pkg/keycloak"
 )
 
 var upgrader = websocket.Upgrader{
@@ -24,22 +24,24 @@ var upgrader = websocket.Upgrader{
 }
 
 type Handler struct {
-	hub            *Hub
-	jwtService     *jwt.Service
-	messageService *service.MessageService
-	memberRepo     *repository.RoomMemberRepository
-	userRepo       *repository.UserRepository
-	roomRepo       *repository.RoomRepository
+	hub             *Hub
+	keycloakService *keycloak.Service
+	authService     *service.AuthService
+	messageService  *service.MessageService
+	memberRepo      *repository.RoomMemberRepository
+	userRepo        *repository.UserRepository
+	roomRepo        *repository.RoomRepository
 }
 
-func NewHandler(hub *Hub, jwtService *jwt.Service, messageService *service.MessageService, memberRepo *repository.RoomMemberRepository, userRepo *repository.UserRepository, roomRepo *repository.RoomRepository) *Handler {
+func NewHandler(hub *Hub, keycloakService *keycloak.Service, authService *service.AuthService, messageService *service.MessageService, memberRepo *repository.RoomMemberRepository, userRepo *repository.UserRepository, roomRepo *repository.RoomRepository) *Handler {
 	return &Handler{
-		hub:            hub,
-		jwtService:     jwtService,
-		messageService: messageService,
-		memberRepo:     memberRepo,
-		userRepo:       userRepo,
-		roomRepo:       roomRepo,
+		hub:             hub,
+		keycloakService: keycloakService,
+		authService:     authService,
+		messageService:  messageService,
+		memberRepo:      memberRepo,
+		userRepo:        userRepo,
+		roomRepo:        roomRepo,
 	}
 }
 
@@ -50,9 +52,15 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := h.jwtService.ValidateToken(token)
+	keycloakClaims, err := h.keycloakService.ValidateToken(token)
 	if err != nil {
 		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := h.authService.GetOrCreateUserFromKeycloak(r.Context(), keycloakClaims)
+	if err != nil {
+		http.Error(w, "Failed to lookup user", http.StatusInternalServerError)
 		return
 	}
 
@@ -62,11 +70,11 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := NewClient(h.hub, conn, claims.UserID, claims.Username, h)
+	client := NewClient(h.hub, conn, user.ID, user.Username, h)
 	h.hub.register <- client
 
 	// Broadcast online status
-	h.hub.BroadcastPresence(claims.UserID, "online")
+	h.hub.BroadcastPresence(user.ID, "online")
 
 	go client.WritePump()
 	go client.ReadPump()

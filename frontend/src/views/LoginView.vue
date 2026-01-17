@@ -1,72 +1,29 @@
 <script setup>
-import { ref } from 'vue'
+import { onMounted } from 'vue'
+import { login, isAuthenticated, isInitialized, initKeycloak } from '../services/keycloak'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
-import { useChatStore } from '../stores/chat'
 
 const router = useRouter()
-const authStore = useAuthStore()
-const chatStore = useChatStore()
 
-const email = ref('')
-const password = ref('')
-
-const handleSubmit = async () => {
-  const success = await authStore.login(email.value, password.value)
-  if (success) {
-    chatStore.initWebSocketListeners()
-    router.push('/chat')
+onMounted(async () => {
+  // Keycloak 초기화가 완료될 때까지 대기
+  if (!isInitialized()) {
+    await initKeycloak(false)
   }
-}
+
+  if (isAuthenticated()) {
+    router.push('/chat')
+  } else {
+    login()
+  }
+})
 </script>
 
 <template>
   <div class="auth-container">
     <div class="auth-card card">
-      <h1 class="auth-title">로그인</h1>
-
-      <form @submit.prevent="handleSubmit" class="auth-form">
-        <div class="form-group">
-          <label for="email">이메일</label>
-          <input
-            id="email"
-            v-model="email"
-            type="email"
-            class="input"
-            placeholder="이메일을 입력하세요"
-            required
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="password">비밀번호</label>
-          <input
-            id="password"
-            v-model="password"
-            type="password"
-            class="input"
-            placeholder="비밀번호를 입력하세요"
-            required
-          />
-        </div>
-
-        <p v-if="authStore.error" class="error-message">
-          {{ authStore.error }}
-        </p>
-
-        <button
-          type="submit"
-          class="btn btn-primary submit-btn"
-          :disabled="authStore.loading"
-        >
-          {{ authStore.loading ? '로그인 중...' : '로그인' }}
-        </button>
-      </form>
-
-      <p class="auth-link">
-        계정이 없으신가요?
-        <router-link to="/register">회원가입</router-link>
-      </p>
+      <h1 class="auth-title">Keycloak 로그인으로 이동 중...</h1>
+      <p class="loading-text">잠시만 기다려주세요.</p>
     </div>
   </div>
 </template>
@@ -84,109 +41,15 @@ const handleSubmit = async () => {
   width: 100%;
   max-width: 400px;
   margin: 20px;
+  text-align: center;
 }
 
 .auth-title {
-  text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   color: #333;
 }
 
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-group label {
-  font-weight: 500;
-  color: #555;
-}
-
-.submit-btn {
-  width: 100%;
-  padding: 14px;
-  font-size: 16px;
-  margin-top: 10px;
-}
-
-.error-message {
-  color: #dc3545;
-  text-align: center;
-  font-size: 14px;
-}
-
-.auth-link {
-  text-align: center;
-  margin-top: 20px;
+.loading-text {
   color: #666;
-}
-
-.auth-link a {
-  color: #007bff;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.auth-link a:hover {
-  text-decoration: underline;
-}
-
-/* Mobile Responsive Styles */
-@media (max-width: 768px) {
-  .auth-container {
-    padding: 20px;
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  .auth-card {
-    margin: 0;
-    padding: 24px 20px;
-  }
-
-  .auth-title {
-    font-size: 24px;
-    margin-bottom: 24px;
-  }
-
-  .auth-form {
-    gap: 16px;
-  }
-
-  .form-group label {
-    font-size: 14px;
-  }
-
-  .submit-btn {
-    padding: 16px;
-    font-size: 16px;
-    margin-top: 8px;
-  }
-
-  .auth-link {
-    margin-top: 16px;
-    font-size: 14px;
-  }
-}
-
-@media (max-width: 375px) {
-  .auth-container {
-    padding: 16px;
-  }
-
-  .auth-card {
-    padding: 20px 16px;
-  }
-
-  .auth-title {
-    font-size: 22px;
-  }
 }
 </style>

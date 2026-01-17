@@ -2,191 +2,114 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"errors"
-
-	"golang.org/x/crypto/bcrypt"
+	"log"
 
 	"Mmessenger/internal/models"
 	"Mmessenger/internal/repository"
-	"Mmessenger/pkg/jwt"
+	"Mmessenger/pkg/keycloak"
 )
 
 var (
-	ErrUserNotFound       = errors.New("user not found")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrUserAlreadyExists  = errors.New("user already exists")
+	ErrUserNotFound = errors.New("user not found")
 )
 
 type AuthService struct {
-	userRepo   *repository.UserRepository
-	jwtService *jwt.Service
-	db         *sql.DB
+	userRepo *repository.UserRepository
+	db       *sql.DB
 }
 
-func NewAuthService(userRepo *repository.UserRepository, jwtService *jwt.Service, db *sql.DB) *AuthService {
+func NewAuthService(userRepo *repository.UserRepository, db *sql.DB) *AuthService {
 	return &AuthService{
-		userRepo:   userRepo,
-		jwtService: jwtService,
-		db:         db,
+		userRepo: userRepo,
+		db:       db,
 	}
 }
 
-func (s *AuthService) Register(ctx context.Context, req *models.CreateUserRequest) (*models.AuthResponse, error) {
-	// Check if user already exists
-	_, err := s.userRepo.GetByEmail(ctx, req.Email)
+func (s *AuthService) GetOrCreateUserFromKeycloak(ctx context.Context, claims *keycloak.Claims) (*models.User, error) {
+	log.Printf("[AuthService] GetOrCreateUserFromKeycloak: KeycloakID=%s, Email=%s, Username=%s",
+		claims.Subject, claims.Email, claims.PreferredUsername)
+
+	// First, try to find by keycloak_id
+	user, err := s.userRepo.GetByKeycloakID(ctx, claims.Subject)
 	if err == nil {
-		return nil, ErrUserAlreadyExists
+		log.Printf("[AuthService] Found existing user by KeycloakID: ID=%d", user.ID)
+		if err := s.userRepo.UpdateStatus(ctx, user.ID, models.UserStatusOnline); err != nil {
+			log.Printf("[AuthService] Failed to update status: %v", err)
+			return nil, err
+		}
+		user.Status = models.UserStatusOnline
+		return user, nil
 	}
+
 	if !errors.Is(err, sql.ErrNoRows) {
+		log.Printf("[AuthService] GetByKeycloakID error: %v", err)
 		return nil, err
 	}
 
-	// Hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
+	// Not found by keycloak_id, try to find by email
+	log.Printf("[AuthService] User not found by KeycloakID, trying email lookup")
+	user, err = s.userRepo.GetByEmail(ctx, claims.Email)
+	if err == nil {
+		// Found existing user by email, update keycloak_id
+		log.Printf("[AuthService] Found existing user by email: ID=%d, updating KeycloakID", user.ID)
+		if err := s.userRepo.UpdateKeycloakID(ctx, user.ID, claims.Subject); err != nil {
+			log.Printf("[AuthService] Failed to update KeycloakID: %v", err)
+			return nil, err
+		}
+		if err := s.userRepo.UpdateStatus(ctx, user.ID, models.UserStatusOnline); err != nil {
+			log.Printf("[AuthService] Failed to update status: %v", err)
+			return nil, err
+		}
+		user.KeycloakID = sql.NullString{String: claims.Subject, Valid: true}
+		user.Status = models.UserStatusOnline
+		return user, nil
+	}
+
+	if !errors.Is(err, sql.ErrNoRows) {
+		log.Printf("[AuthService] GetByEmail error: %v", err)
 		return nil, err
 	}
 
-	// Create user
-	user := &models.User{
-		Email:        req.Email,
-		Username:     req.Username,
-		PasswordHash: string(hashedPassword),
+	// User not found, create new user
+	log.Printf("[AuthService] User not found, creating new user")
+
+	username := claims.PreferredUsername
+	if username == "" {
+		username = claims.Email
+	}
+
+	user = &models.User{
+		KeycloakID: sql.NullString{String: claims.Subject, Valid: true},
+		Email:      claims.Email,
+		Username:   username,
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
+		log.Printf("[AuthService] Failed to create user: %v", err)
 		return nil, err
 	}
 
-	// Generate tokens
-	accessToken, err := s.jwtService.GenerateAccessToken(user.ID, user.Username, user.Email)
-	if err != nil {
-		return nil, err
-	}
+	log.Printf("[AuthService] Created new user: ID=%d", user.ID)
 
-	refreshToken, expiresAt, err := s.jwtService.GenerateRefreshToken(user.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Store refresh token hash
-	if err := s.storeRefreshToken(ctx, user.ID, refreshToken, expiresAt); err != nil {
-		return nil, err
-	}
-
-	return &models.AuthResponse{
-		User:         user.ToResponse(),
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-	}, nil
-}
-
-func (s *AuthService) Login(ctx context.Context, req *models.LoginRequest) (*models.AuthResponse, error) {
-	user, err := s.userRepo.GetByEmail(ctx, req.Email)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrInvalidCredentials
-		}
-		return nil, err
-	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		return nil, ErrInvalidCredentials
-	}
-
-	// Update user status to online
 	if err := s.userRepo.UpdateStatus(ctx, user.ID, models.UserStatusOnline); err != nil {
+		log.Printf("[AuthService] Failed to update status for new user: %v", err)
 		return nil, err
 	}
-
-	// Generate tokens
-	accessToken, err := s.jwtService.GenerateAccessToken(user.ID, user.Username, user.Email)
-	if err != nil {
-		return nil, err
-	}
-
-	refreshToken, expiresAt, err := s.jwtService.GenerateRefreshToken(user.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Store refresh token hash
-	if err := s.storeRefreshToken(ctx, user.ID, refreshToken, expiresAt); err != nil {
-		return nil, err
-	}
-
 	user.Status = models.UserStatusOnline
-	return &models.AuthResponse{
-		User:         user.ToResponse(),
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-	}, nil
+
+	return user, nil
 }
 
-func (s *AuthService) Logout(ctx context.Context, userID uint64, refreshToken string) error {
-	// Revoke refresh token
-	tokenHash := s.hashToken(refreshToken)
-	query := `UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = ? AND user_id = ?`
-	_, err := s.db.ExecContext(ctx, query, tokenHash, userID)
-	if err != nil {
-		return err
-	}
-
-	// Update user status to offline
-	return s.userRepo.UpdateStatus(ctx, userID, models.UserStatusOffline)
-}
-
-func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*models.AuthResponse, error) {
-	claims, err := s.jwtService.ValidateToken(refreshToken)
-	if err != nil {
-		return nil, err
-	}
-
-	// Verify refresh token in database
-	tokenHash := s.hashToken(refreshToken)
-	var userID uint64
-	query := `SELECT user_id FROM refresh_tokens WHERE token_hash = ? AND expires_at > NOW() AND revoked_at IS NULL`
-	err = s.db.QueryRowContext(ctx, query, tokenHash).Scan(&userID)
-	if err != nil {
-		return nil, jwt.ErrInvalidToken
-	}
-
-	if userID != claims.UserID {
-		return nil, jwt.ErrInvalidToken
-	}
-
-	user, err := s.userRepo.GetByID(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Generate new access token
-	accessToken, err := s.jwtService.GenerateAccessToken(user.ID, user.Username, user.Email)
-	if err != nil {
-		return nil, err
-	}
-
-	return &models.AuthResponse{
-		User:        user.ToResponse(),
-		AccessToken: accessToken,
-	}, nil
+func (s *AuthService) GetUserByKeycloakID(ctx context.Context, keycloakID string) (*models.User, error) {
+	return s.userRepo.GetByKeycloakID(ctx, keycloakID)
 }
 
 func (s *AuthService) GetUserByID(ctx context.Context, userID uint64) (*models.User, error) {
 	return s.userRepo.GetByID(ctx, userID)
 }
 
-func (s *AuthService) storeRefreshToken(ctx context.Context, userID uint64, token string, expiresAt interface{}) error {
-	tokenHash := s.hashToken(token)
-	query := `INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)`
-	_, err := s.db.ExecContext(ctx, query, userID, tokenHash, expiresAt)
-	return err
-}
-
-func (s *AuthService) hashToken(token string) string {
-	hash := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(hash[:])
+func (s *AuthService) Logout(ctx context.Context, userID uint64) error {
+	return s.userRepo.UpdateStatus(ctx, userID, models.UserStatusOffline)
 }

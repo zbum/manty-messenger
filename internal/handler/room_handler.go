@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -47,6 +48,7 @@ func (h *RoomHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	room, err := h.roomService.Create(r.Context(), claims.UserID, &req)
 	if err != nil {
+		log.Printf("[RoomHandler.Create] Error: %v, UserID: %d", err, claims.UserID)
 		respondError(w, http.StatusInternalServerError, "Failed to create room")
 		return
 	}
@@ -63,6 +65,7 @@ func (h *RoomHandler) GetMyRooms(w http.ResponseWriter, r *http.Request) {
 
 	rooms, err := h.roomService.GetByUserID(r.Context(), claims.UserID)
 	if err != nil {
+		log.Printf("[RoomHandler.GetMyRooms] Error: %v, UserID: %d", err, claims.UserID)
 		respondError(w, http.StatusInternalServerError, "Failed to get rooms")
 		return
 	}
