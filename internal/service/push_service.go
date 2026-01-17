@@ -83,15 +83,20 @@ func (s *PushService) SendToUser(ctx context.Context, userID uint64, notificatio
 
 // SendToRoomMembers sends a push notification to all members of a room except the sender
 func (s *PushService) SendToRoomMembers(ctx context.Context, roomID, senderID uint64, notification *models.PushNotification) error {
+	log.Printf("[Push] SendToRoomMembers called - roomID: %d, senderID: %d", roomID, senderID)
+
 	if !s.IsConfigured() {
+		log.Println("[Push] VAPID not configured, skipping push")
 		return nil
 	}
 
 	// Get room members
 	members, err := s.memberRepo.GetByRoomID(ctx, roomID)
 	if err != nil {
+		log.Printf("[Push] Failed to get room members: %v", err)
 		return err
 	}
+	log.Printf("[Push] Found %d members in room", len(members))
 
 	// Collect user IDs excluding sender
 	var userIDs []uint64
@@ -102,22 +107,29 @@ func (s *PushService) SendToRoomMembers(ctx context.Context, roomID, senderID ui
 	}
 
 	if len(userIDs) == 0 {
+		log.Println("[Push] No other members to notify")
 		return nil
 	}
+	log.Printf("[Push] Will notify %d users: %v", len(userIDs), userIDs)
 
 	// Get all subscriptions for these users
 	subs, err := s.pushRepo.GetByUserIDs(ctx, userIDs)
 	if err != nil {
+		log.Printf("[Push] Failed to get subscriptions: %v", err)
 		return err
 	}
+	log.Printf("[Push] Found %d push subscriptions", len(subs))
 
 	// Send notifications
 	for _, sub := range subs {
+		log.Printf("[Push] Sending to subscription %d (user %d, endpoint: %s...)", sub.ID, sub.UserID, sub.Endpoint[:50])
 		if err := s.sendNotification(sub, notification); err != nil {
-			log.Printf("Failed to send push to subscription %d: %v", sub.ID, err)
+			log.Printf("[Push] Failed to send push to subscription %d: %v", sub.ID, err)
 			if isSubscriptionGone(err) {
 				s.pushRepo.DeleteByEndpoint(ctx, sub.Endpoint)
 			}
+		} else {
+			log.Printf("[Push] Successfully sent to subscription %d", sub.ID)
 		}
 	}
 
