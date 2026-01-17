@@ -64,9 +64,9 @@ const selectPack = (packId) => {
 
 .sticker-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  padding: 12px;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  padding: 8px;
   max-height: 240px;
   overflow-y: auto;
 }
@@ -76,7 +76,7 @@ const selectPack = (packId) => {
   aspect-ratio: 1;
   border: none;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -93,7 +93,7 @@ const selectPack = (packId) => {
 }
 
 .sticker-emoji {
-  font-size: 32px;
+  font-size: 28px;
   line-height: 1;
 }
 
@@ -147,14 +147,14 @@ const selectPack = (packId) => {
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .sticker-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 2px;
-    padding: 8px;
+    padding: 6px;
     max-height: 200px;
   }
 
   .sticker-emoji {
-    font-size: 28px;
+    font-size: 26px;
   }
 
   .pack-tab {
@@ -166,6 +166,7 @@ const selectPack = (packId) => {
 
 @media (max-width: 375px) {
   .sticker-grid {
+    grid-template-columns: repeat(5, 1fr);
     max-height: 180px;
   }
 
