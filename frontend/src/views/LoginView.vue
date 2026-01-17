@@ -1,11 +1,16 @@
 <script setup>
 import { onMounted } from 'vue'
-import { login, isAuthenticated } from '../services/keycloak'
+import { login, isAuthenticated, isInitialized, initKeycloak } from '../services/keycloak'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
-onMounted(() => {
+onMounted(async () => {
+  // Keycloak 초기화가 완료될 때까지 대기
+  if (!isInitialized()) {
+    await initKeycloak(false)
+  }
+
   if (isAuthenticated()) {
     router.push('/chat')
   } else {
