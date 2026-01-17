@@ -207,6 +207,12 @@ export const useChatStore = defineStore('chat', {
       websocket.sendMessage(this.currentRoom.id, content, messageType, fileUrl, thumbnailUrl)
     },
 
+    sendStickerMessage(stickerId) {
+      if (!this.currentRoom || !stickerId) return
+
+      websocket.sendMessage(this.currentRoom.id, stickerId, 'sticker')
+    },
+
     addMessage(roomId, message) {
       if (!this.messages[roomId]) {
         this.messages[roomId] = []

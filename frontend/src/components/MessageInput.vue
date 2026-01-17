@@ -1,8 +1,9 @@
 <script setup>
 import { ref } from 'vue'
 import { uploadFile, getFileType } from '../services/api'
+import StickerPicker from './StickerPicker.vue'
 
-const emit = defineEmits(['send', 'sendFile', 'typing'])
+const emit = defineEmits(['send', 'sendFile', 'sendSticker', 'typing'])
 
 const message = ref('')
 const typingTimeout = ref(null)
@@ -14,6 +15,16 @@ const isUploading = ref(false)
 const isDragging = ref(false)
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
+const showStickerPicker = ref(false)
+
+const toggleStickerPicker = () => {
+  showStickerPicker.value = !showStickerPicker.value
+}
+
+const handleStickerSelect = (sticker) => {
+  emit('sendSticker', sticker)
+  showStickerPicker.value = false
+}
 
 const handleInput = () => {
   emit('typing', true)
@@ -248,11 +259,25 @@ const handlePaste = (e) => {
       </div>
     </div>
 
+    <!-- Sticker Picker -->
+    <StickerPicker
+      v-if="showStickerPicker"
+      @select="handleStickerSelect"
+      @close="showStickerPicker = false"
+    />
+
     <div class="input-wrapper">
       <!-- File Attach Button -->
       <button @click="openFilePicker" class="attach-button" :disabled="isUploading">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
           <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
+        </svg>
+      </button>
+
+      <!-- Sticker Button -->
+      <button @click="toggleStickerPicker" class="sticker-button" :class="{ active: showStickerPicker }" :disabled="isUploading">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
         </svg>
       </button>
       <input
@@ -493,6 +518,36 @@ const handlePaste = (e) => {
   cursor: not-allowed;
 }
 
+.sticker-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.sticker-button:hover:not(:disabled) {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.sticker-button.active {
+  background: #007bff;
+  color: white;
+}
+
+.sticker-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .file-input {
   display: none;
 }
@@ -571,6 +626,11 @@ const handlePaste = (e) => {
   }
 
   .attach-button {
+    width: 32px;
+    height: 32px;
+  }
+
+  .sticker-button {
     width: 32px;
     height: 32px;
   }

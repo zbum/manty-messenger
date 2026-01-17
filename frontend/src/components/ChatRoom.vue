@@ -66,6 +66,10 @@ const handleSendFile = ({ content, messageType, fileUrl, thumbnailUrl }) => {
   chatStore.sendFileMessage(content, messageType, fileUrl, thumbnailUrl)
 }
 
+const handleSendSticker = (sticker) => {
+  chatStore.sendStickerMessage(sticker.id)
+}
+
 const handleTyping = (isTyping) => {
   chatStore.setTyping(isTyping)
 }
@@ -122,6 +126,7 @@ const handleInvited = (user) => {
     <MessageInput
       @send="handleSendMessage"
       @sendFile="handleSendFile"
+      @sendSticker="handleSendSticker"
       @typing="handleTyping"
     />
 

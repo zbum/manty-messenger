@@ -8,10 +8,11 @@ import (
 type MessageType string
 
 const (
-	MessageTypeText   MessageType = "text"
-	MessageTypeImage  MessageType = "image"
-	MessageTypeFile   MessageType = "file"
-	MessageTypeSystem MessageType = "system"
+	MessageTypeText    MessageType = "text"
+	MessageTypeImage   MessageType = "image"
+	MessageTypeFile    MessageType = "file"
+	MessageTypeSystem  MessageType = "system"
+	MessageTypeSticker MessageType = "sticker"
 )
 
 type Message struct {
