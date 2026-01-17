@@ -100,10 +100,14 @@ func main() {
 	keycloakService := keycloak.NewService(&cfg.Keycloak)
 	log.Println("Keycloak service initialized")
 
+	// Initialize push repository
+	pushRepo := repository.NewPushRepository(db)
+
 	// Initialize services
 	authService := service.NewAuthService(userRepo, db)
 	roomService := service.NewRoomService(roomRepo, memberRepo, userRepo)
 	messageService := service.NewMessageService(messageRepo, memberRepo, userRepo)
+	pushService := service.NewPushService(pushRepo, memberRepo, &cfg.WebPush)
 
 	// Initialize WebSocket Hub first (needed by RoomHandler)
 	hub := websocket.NewHub(redisPubSub)
@@ -115,9 +119,10 @@ func main() {
 	messageHandler := handler.NewMessageHandler(messageService)
 	userHandler := handler.NewUserHandler(userRepo)
 	fileHandler := handler.NewFileHandler(localStorage, cfg.Storage.MaxFileSize)
+	pushHandler := handler.NewPushHandler(pushService)
 
 	// Initialize WebSocket handler
-	wsHandler := websocket.NewHandler(hub, keycloakService, authService, messageService, memberRepo, userRepo, roomRepo)
+	wsHandler := websocket.NewHandler(hub, keycloakService, authService, messageService, pushService, memberRepo, userRepo, roomRepo)
 
 	// User lookup function for auth middleware
 	userLookupFunc := func(ctx context.Context, keycloakClaims *keycloak.Claims) (*middleware.UserClaims, error) {
@@ -190,6 +195,14 @@ func main() {
 	fileRoutes := api.PathPrefix("/files").Subrouter()
 	fileRoutes.Use(authMiddleware.Authenticate)
 	fileRoutes.HandleFunc("/upload", fileHandler.Upload).Methods("POST")
+
+	// Push notification routes
+	pushRoutes := api.PathPrefix("/push").Subrouter()
+	pushRoutes.HandleFunc("/vapid-public-key", pushHandler.GetVAPIDPublicKey).Methods("GET")
+	pushRoutesProtected := pushRoutes.PathPrefix("").Subrouter()
+	pushRoutesProtected.Use(authMiddleware.Authenticate)
+	pushRoutesProtected.HandleFunc("/subscribe", pushHandler.Subscribe).Methods("POST")
+	pushRoutesProtected.HandleFunc("/unsubscribe", pushHandler.Unsubscribe).Methods("DELETE")
 
 	// WebSocket route
 	r.HandleFunc("/ws", wsHandler.ServeWS)

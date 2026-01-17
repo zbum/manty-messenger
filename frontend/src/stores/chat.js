@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import api from '../services/api'
 import websocket, { ConnectionState } from '../services/websocket'
 import { useAuthStore } from './auth'
+import notificationService from '../services/notification'
 
 export const useChatStore = defineStore('chat', {
   state: () => ({
@@ -40,7 +41,7 @@ export const useChatStore = defineStore('chat', {
       })
 
       websocket.on('new_message', (payload) => {
-        this.addMessage(payload.room_id, {
+        const message = {
           id: payload.id,
           room_id: payload.room_id,
           sender: payload.sender,
@@ -50,7 +51,23 @@ export const useChatStore = defineStore('chat', {
           thumbnail_url: payload.thumbnail_url,
           created_at: payload.created_at,
           unread_count: payload.unread_count
-        })
+        }
+        this.addMessage(payload.room_id, message)
+
+        // 브라우저 알림 표시 (현재 보고 있는 방이 아니고, 내가 보낸 메시지가 아닌 경우)
+        const authStore = useAuthStore()
+        const isCurrentRoom = this.currentRoom?.id === payload.room_id
+        const isMyMessage = payload.sender?.id === authStore.user?.id
+
+        if (!isCurrentRoom && !isMyMessage) {
+          const room = this.rooms.find(r => r.id === payload.room_id)
+          if (room) {
+            notificationService.showNewMessage(message, room, () => {
+              // 알림 클릭 시 해당 채팅방으로 이동
+              this.joinRoom(room)
+            })
+          }
+        }
       })
 
       websocket.on('message_read', (payload) => {
@@ -79,6 +96,10 @@ export const useChatStore = defineStore('chat', {
         console.log('Room invited', payload)
         if (payload.room) {
           this.addRoom(payload.room)
+          // 채팅방 초대 알림 표시
+          notificationService.showRoomInvite(payload.room, () => {
+            this.joinRoom(payload.room)
+          })
         }
       })
     },

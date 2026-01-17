@@ -28,17 +28,19 @@ type Handler struct {
 	keycloakService *keycloak.Service
 	authService     *service.AuthService
 	messageService  *service.MessageService
+	pushService     *service.PushService
 	memberRepo      *repository.RoomMemberRepository
 	userRepo        *repository.UserRepository
 	roomRepo        *repository.RoomRepository
 }
 
-func NewHandler(hub *Hub, keycloakService *keycloak.Service, authService *service.AuthService, messageService *service.MessageService, memberRepo *repository.RoomMemberRepository, userRepo *repository.UserRepository, roomRepo *repository.RoomRepository) *Handler {
+func NewHandler(hub *Hub, keycloakService *keycloak.Service, authService *service.AuthService, messageService *service.MessageService, pushService *service.PushService, memberRepo *repository.RoomMemberRepository, userRepo *repository.UserRepository, roomRepo *repository.RoomRepository) *Handler {
 	return &Handler{
 		hub:             hub,
 		keycloakService: keycloakService,
 		authService:     authService,
 		messageService:  messageService,
+		pushService:     pushService,
 		memberRepo:      memberRepo,
 		userRepo:        userRepo,
 		roomRepo:        roomRepo,
@@ -231,6 +233,43 @@ func (h *Handler) handleSendMessage(client *Client, msg *WSMessage) {
 	if data, err := marshalMessage(notification); err == nil {
 		// Send to all room members including sender
 		h.hub.BroadcastToRoom(payload.RoomID, data, nil)
+	}
+
+	// Send push notification to offline users
+	if h.pushService != nil {
+		go func() {
+			room, err := h.roomRepo.GetByID(context.Background(), payload.RoomID)
+			if err != nil {
+				return
+			}
+
+			senderName := client.Username
+			if savedMsg.Sender != nil && savedMsg.Sender.Username != "" {
+				senderName = savedMsg.Sender.Username
+			}
+
+			content := savedMsg.Content
+			if savedMsg.MessageType == "image" {
+				content = "📷 이미지를 보냈습니다"
+			} else if savedMsg.MessageType == "file" {
+				content = "📎 파일을 보냈습니다"
+			} else if len(content) > 100 {
+				content = content[:100] + "..."
+			}
+
+			pushNotif := &models.PushNotification{
+				Title: senderName + " - " + room.Name,
+				Body:  content,
+				Icon:  "/favicon.ico",
+				Tag:   "message-" + string(rune(payload.RoomID)),
+				Data: map[string]any{
+					"roomId":    payload.RoomID,
+					"messageId": savedMsg.ID,
+				},
+			}
+
+			h.pushService.SendToRoomMembers(context.Background(), payload.RoomID, client.UserID, pushNotif)
+		}()
 	}
 }
 
