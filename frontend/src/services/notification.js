@@ -25,7 +25,9 @@ class NotificationService {
     }
 
     try {
-      this.swRegistration = await navigator.serviceWorker.register('/sw.js')
+      // Vite의 base URL을 사용하여 서비스 워커 경로 설정
+      const swPath = `${import.meta.env.BASE_URL}sw.js`
+      this.swRegistration = await navigator.serviceWorker.register(swPath)
       console.log('Service Worker registered:', this.swRegistration)
       return this.swRegistration
     } catch (error) {
