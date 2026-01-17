@@ -17,6 +17,11 @@ const scrollToBottom = async () => {
   }
 }
 
+// 이미지 로드 완료 시 스크롤 (이미지 높이 반영 후)
+const onImageLoad = () => {
+  scrollToBottom()
+}
+
 watch(messages, () => {
   scrollToBottom()
 }, { deep: true })
@@ -125,7 +130,7 @@ const openImage = (message) => {
 
         <!-- Image Message -->
         <div v-if="isImageMessage(message)" class="message-bubble image-bubble" @click="openImage(message)">
-          <img :src="getThumbnailUrl(message)" :alt="message.content" class="message-image" />
+          <img :src="getThumbnailUrl(message)" :alt="message.content" class="message-image" @load="onImageLoad" />
           <div v-if="message.content && message.content !== getFileName(message)" class="image-caption">
             {{ message.content }}
           </div>
