@@ -16,6 +16,13 @@ type Config struct {
 	JWT      JWTConfig
 	CORS     CORSConfig
 	Keycloak KeycloakConfig
+	WebPush  WebPushConfig
+}
+
+type WebPushConfig struct {
+	VAPIDPublicKey  string
+	VAPIDPrivateKey string
+	VAPIDSubject    string
 }
 
 type KeycloakConfig struct {
@@ -118,6 +125,11 @@ func Load() (*Config, error) {
 			URL:      getEnv("KEYCLOAK_URL", "https://keycloak.manty.co.kr"),
 			Realm:    getEnv("KEYCLOAK_REALM", "manty"),
 			ClientID: getEnv("KEYCLOAK_CLIENT_ID", "manty-messenger"),
+		},
+		WebPush: WebPushConfig{
+			VAPIDPublicKey:  getEnv("VAPID_PUBLIC_KEY", ""),
+			VAPIDPrivateKey: getEnv("VAPID_PRIVATE_KEY", ""),
+			VAPIDSubject:    getEnv("VAPID_SUBJECT", "mailto:admin@example.com"),
 		},
 	}, nil
 }
