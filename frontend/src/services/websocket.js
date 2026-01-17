@@ -13,8 +13,9 @@ class WebSocketService {
     this.socket = null
     this.listeners = new Map()
     this.reconnectAttempts = 0
-    this.maxReconnectAttempts = 5
+    this.maxReconnectAttempts = Infinity // 무한 재연결
     this.reconnectDelay = 1000
+    this.maxReconnectDelay = 30000 // 최대 30초
     this.isConnecting = false
     this.currentRoomId = null
     this.pendingMessages = []
@@ -22,6 +23,12 @@ class WebSocketService {
     this.currentToken = null
     this.connectionState = ConnectionState.DISCONNECTED
     this.connectionStateListeners = []
+
+    // Heartbeat 설정
+    this.heartbeatInterval = null
+    this.heartbeatTimeout = null
+    this.heartbeatIntervalMs = 25000 // 25초마다 ping
+    this.heartbeatTimeoutMs = 10000 // 10초 내 pong 없으면 재연결
 
     // 오프라인 큐를 localStorage에서 복구
     this.offlineQueue = this.loadOfflineQueue()
@@ -102,6 +109,9 @@ class WebSocketService {
         this.isConnecting = false
         this.setConnectionState(ConnectionState.CONNECTED)
 
+        // Heartbeat 시작
+        this.startHeartbeat()
+
         // Send pending messages (for initial connection)
         while (this.pendingMessages.length > 0) {
           const msg = this.pendingMessages.shift()
@@ -124,6 +134,7 @@ class WebSocketService {
       this.socket.onclose = (event) => {
         console.log('WebSocket closed', event.code, event.reason)
         this.isConnecting = false
+        this.stopHeartbeat()
         // Only reconnect if not intentionally disconnected (e.g., logout)
         if (!this.intentionalDisconnect) {
           this.setConnectionState(ConnectionState.RECONNECTING)
@@ -151,6 +162,11 @@ class WebSocketService {
   }
 
   handleMessage(message) {
+    // pong 메시지는 heartbeat 타이머 리셋
+    if (message.type === 'pong') {
+      this.handlePong()
+      return
+    }
     const listeners = this.listeners.get(message.type) || []
     listeners.forEach(callback => callback(message.payload, message))
   }
@@ -260,12 +276,53 @@ class WebSocketService {
   handleReconnect(token) {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++
-      const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1)
+      // exponential backoff with max delay cap
+      const delay = Math.min(
+        this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1),
+        this.maxReconnectDelay
+      )
       console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`)
       this.reconnectTimeout = setTimeout(() => this.connect(token), delay)
     } else {
       console.error('Max reconnection attempts reached')
       this.setConnectionState(ConnectionState.DISCONNECTED)
+    }
+  }
+
+  // Heartbeat 시작
+  startHeartbeat() {
+    this.stopHeartbeat()
+    this.heartbeatInterval = setInterval(() => {
+      if (this.socket?.readyState === WebSocket.OPEN) {
+        this.send('ping', {})
+        // pong 응답 대기 타이머
+        this.heartbeatTimeout = setTimeout(() => {
+          console.warn('Heartbeat timeout, closing connection')
+          if (this.socket) {
+            this.socket.close()
+          }
+        }, this.heartbeatTimeoutMs)
+      }
+    }, this.heartbeatIntervalMs)
+  }
+
+  // Heartbeat 정지
+  stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval)
+      this.heartbeatInterval = null
+    }
+    if (this.heartbeatTimeout) {
+      clearTimeout(this.heartbeatTimeout)
+      this.heartbeatTimeout = null
+    }
+  }
+
+  // Pong 수신 처리
+  handlePong() {
+    if (this.heartbeatTimeout) {
+      clearTimeout(this.heartbeatTimeout)
+      this.heartbeatTimeout = null
     }
   }
 
@@ -308,6 +365,7 @@ class WebSocketService {
 
   disconnect() {
     this.intentionalDisconnect = true
+    this.stopHeartbeat()
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout)
       this.reconnectTimeout = null
