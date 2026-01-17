@@ -93,7 +93,7 @@ const selectPack = (packId) => {
 }
 
 .sticker-emoji {
-  font-size: 28px;
+  font-size: 36px;
   line-height: 1;
 }
 
@@ -154,7 +154,7 @@ const selectPack = (packId) => {
   }
 
   .sticker-emoji {
-    font-size: 26px;
+    font-size: 32px;
   }
 
   .pack-tab {
@@ -171,7 +171,7 @@ const selectPack = (packId) => {
   }
 
   .sticker-emoji {
-    font-size: 24px;
+    font-size: 28px;
   }
 }
 </style>
