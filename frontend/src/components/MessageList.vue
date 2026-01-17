@@ -2,6 +2,7 @@
 import { computed, ref, watch, nextTick, onMounted } from 'vue'
 import { useChatStore } from '../stores/chat'
 import { useAuthStore } from '../stores/auth'
+import { getStickerById } from '../data/stickers'
 
 const chatStore = useChatStore()
 const authStore = useAuthStore()
@@ -52,6 +53,15 @@ const isImageMessage = (message) => {
 
 const isFileMessage = (message) => {
   return message.message_type === 'file' && message.file_url
+}
+
+const isStickerMessage = (message) => {
+  return message.message_type === 'sticker'
+}
+
+const getStickerEmoji = (message) => {
+  const sticker = getStickerById(message.content)
+  return sticker?.emoji || message.content
 }
 
 const getFileUrl = (url) => {
@@ -128,8 +138,13 @@ const openImage = (message) => {
           {{ message.sender?.username }}
         </div>
 
+        <!-- Sticker Message -->
+        <div v-if="isStickerMessage(message)" class="sticker-bubble">
+          <span class="sticker-emoji">{{ getStickerEmoji(message) }}</span>
+        </div>
+
         <!-- Image Message -->
-        <div v-if="isImageMessage(message)" class="message-bubble image-bubble" @click="openImage(message)">
+        <div v-else-if="isImageMessage(message)" class="message-bubble image-bubble" @click="openImage(message)">
           <img :src="getThumbnailUrl(message)" :alt="message.content" class="message-image" @load="onImageLoad" />
           <div v-if="message.content && message.content !== getFileName(message)" class="image-caption">
             {{ message.content }}
@@ -244,6 +259,18 @@ const openImage = (message) => {
   color: white;
   border-radius: 18px;
   border-top-right-radius: 4px;
+}
+
+/* Sticker Message Styles */
+.sticker-bubble {
+  background: transparent;
+  padding: 0;
+}
+
+.sticker-emoji {
+  font-size: 80px;
+  line-height: 1;
+  display: block;
 }
 
 /* Image Message Styles */
@@ -391,6 +418,10 @@ const openImage = (message) => {
 
   .message-image {
     max-height: 200px;
+  }
+
+  .sticker-emoji {
+    font-size: 64px;
   }
 
   .file-bubble {
