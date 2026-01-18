@@ -3,6 +3,7 @@ import api from '../services/api'
 import websocket, { ConnectionState } from '../services/websocket'
 import { useAuthStore } from './auth'
 import notificationService from '../services/notification'
+import { login as keycloakLogin } from '../services/keycloak'
 
 export const useChatStore = defineStore('chat', {
   state: () => ({
@@ -101,6 +102,12 @@ export const useChatStore = defineStore('chat', {
             this.joinRoom(payload.room)
           })
         }
+      })
+
+      // 인증이 필요할 때 (토큰 만료 등)
+      websocket.on('auth_required', () => {
+        console.log('Authentication required, redirecting to login')
+        keycloakLogin()
       })
     },
 
