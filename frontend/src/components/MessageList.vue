@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch, nextTick, onMounted } from 'vue'
+import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useChatStore } from '../stores/chat'
 import { useAuthStore } from '../stores/auth'
 import { getStickerById } from '../data/stickers'
@@ -10,6 +10,13 @@ const authStore = useAuthStore()
 const messagesContainer = ref(null)
 const messages = computed(() => chatStore.currentMessages)
 const currentUserId = computed(() => authStore.user?.id)
+const currentRoom = computed(() => chatStore.currentRoom)
+const loadingMore = computed(() => chatStore.loadingMore)
+const hasMore = computed(() => currentRoom.value ? chatStore.hasMore[currentRoom.value.id] : false)
+
+// 스크롤 위치 추적
+let isLoadingOlder = false
+let previousScrollHeight = 0
 
 const scrollToBottom = async () => {
   await nextTick()
@@ -23,12 +30,55 @@ const onImageLoad = () => {
   scrollToBottom()
 }
 
-watch(messages, () => {
-  scrollToBottom()
+// 스크롤 이벤트 핸들러 (무한 스크롤)
+const handleScroll = async () => {
+  if (!messagesContainer.value || !currentRoom.value) return
+  if (loadingMore.value || !hasMore.value) return
+
+  const { scrollTop } = messagesContainer.value
+
+  // 상단에서 100px 이내로 스크롤하면 이전 메시지 로드
+  if (scrollTop < 100) {
+    isLoadingOlder = true
+    previousScrollHeight = messagesContainer.value.scrollHeight
+
+    const loaded = await chatStore.loadMoreMessages(currentRoom.value.id)
+
+    if (loaded) {
+      // 스크롤 위치 유지 (새로 추가된 메시지 높이만큼 보정)
+      await nextTick()
+      const newScrollHeight = messagesContainer.value.scrollHeight
+      messagesContainer.value.scrollTop = newScrollHeight - previousScrollHeight
+    }
+
+    isLoadingOlder = false
+  }
+}
+
+// 메시지 변경 감지
+watch(messages, (newMessages, oldMessages) => {
+  // 이전 메시지 로딩 중이 아닐 때만 하단으로 스크롤
+  if (!isLoadingOlder) {
+    scrollToBottom()
+  }
 }, { deep: true })
+
+// 방 변경 시 하단으로 스크롤
+watch(currentRoom, () => {
+  scrollToBottom()
+})
 
 onMounted(() => {
   scrollToBottom()
+  if (messagesContainer.value) {
+    messagesContainer.value.addEventListener('scroll', handleScroll)
+  }
+})
+
+onUnmounted(() => {
+  if (messagesContainer.value) {
+    messagesContainer.value.removeEventListener('scroll', handleScroll)
+  }
 })
 
 const formatTime = (dateString) => {
@@ -117,6 +167,17 @@ const openImage = (message) => {
 
 <template>
   <div class="messages-container" ref="messagesContainer">
+    <!-- 이전 메시지 로딩 표시 -->
+    <div v-if="loadingMore" class="loading-more">
+      <div class="loading-spinner"></div>
+      <span>이전 메시지 불러오는 중...</span>
+    </div>
+
+    <!-- 더 이상 메시지가 없을 때 -->
+    <div v-else-if="messages.length > 0 && !hasMore" class="no-more-messages">
+      대화의 시작입니다
+    </div>
+
     <div v-if="messages.length === 0" class="no-messages">
       <p>아직 메시지가 없습니다</p>
       <p class="hint">첫 메시지를 보내보세요!</p>
@@ -188,6 +249,40 @@ const openImage = (message) => {
   overflow-y: auto;
   padding: 20px;
   background: #f8f9fa;
+}
+
+/* 이전 메시지 로딩 스타일 */
+.loading-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  color: #666;
+  font-size: 13px;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e0e0e0;
+  border-top-color: #007bff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.no-more-messages {
+  text-align: center;
+  color: #999;
+  font-size: 12px;
+  padding: 16px;
+  margin-bottom: 8px;
 }
 
 .no-messages {

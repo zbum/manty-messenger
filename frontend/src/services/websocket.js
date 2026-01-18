@@ -341,25 +341,56 @@ class WebSocketService {
 
   // 수동 재연결
   async reconnect() {
-    if (!this.isConnecting && !this.isConnected) {
-      console.log('Manual reconnect triggered')
-      this.reconnectAttempts = 0
-      if (this.reconnectTimeout) {
-        clearTimeout(this.reconnectTimeout)
-        this.reconnectTimeout = null
-      }
-      // 새로운 토큰을 가져와서 재연결
+    // 이미 연결 중이면 무시
+    if (this.isConnecting || this.connectionState === ConnectionState.CONNECTING) {
+      console.log('Already connecting, ignoring reconnect request')
+      return
+    }
+
+    // 재연결 중이면 무시
+    if (this.connectionState === ConnectionState.RECONNECTING) {
+      console.log('Already reconnecting, ignoring reconnect request')
+      return
+    }
+
+    // 이미 연결되어 있으면 무시
+    if (this.isConnected) {
+      console.log('Already connected, ignoring reconnect request')
+      return
+    }
+
+    console.log('Manual reconnect triggered')
+    this.intentionalDisconnect = false  // 재연결 허용
+    this.reconnectAttempts = 0
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+      this.reconnectTimeout = null
+    }
+
+    // 연결 상태를 CONNECTING으로 변경 (UI 피드백)
+    this.setConnectionState(ConnectionState.CONNECTING)
+
+    // 새로운 토큰을 가져와서 재연결
+    try {
       const freshToken = await getValidToken()
       if (freshToken) {
         console.log('Using fresh token for manual reconnection')
-        this.connect(freshToken)
+        await this.connect(freshToken)
       } else if (this.currentToken) {
         // 새 토큰을 가져올 수 없으면 기존 토큰으로 시도
         console.log('Using existing token for manual reconnection')
-        this.connect(this.currentToken)
+        await this.connect(this.currentToken)
       } else {
         console.error('No token available for reconnection')
+        // 토큰이 없으면 DISCONNECTED 상태로 유지하고 로그인 필요 알림
+        this.setConnectionState(ConnectionState.DISCONNECTED)
+        // 인증이 필요하다는 이벤트 발생
+        const listeners = this.listeners.get('auth_required') || []
+        listeners.forEach(callback => callback({}, { type: 'auth_required' }))
       }
+    } catch (error) {
+      console.error('Reconnection failed:', error)
+      this.setConnectionState(ConnectionState.DISCONNECTED)
     }
   }
 
@@ -387,6 +418,7 @@ class WebSocketService {
     })
   }
 
+  // 연결만 끊기 (리스너 유지, 재연결 가능)
   disconnect() {
     this.intentionalDisconnect = true
     this.stopHeartbeat()
@@ -398,13 +430,18 @@ class WebSocketService {
       this.socket.close()
       this.socket = null
     }
-    this.listeners.clear()
     this.reconnectAttempts = 0
-    this.currentRoomId = null
     this.pendingMessages = []
-    this.currentToken = null
     this.setConnectionState(ConnectionState.DISCONNECTED)
+  }
+
+  // 완전 초기화 (로그아웃 시 사용)
+  cleanup() {
+    this.disconnect()
+    this.listeners.clear()
     this.connectionStateListeners = []
+    this.currentRoomId = null
+    this.currentToken = null
   }
 
   generateId() {

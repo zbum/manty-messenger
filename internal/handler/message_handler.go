@@ -38,6 +38,7 @@ func (h *MessageHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 
 	limit := 50
 	offset := 0
+	var afterID uint64
 
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
@@ -51,7 +52,23 @@ func (h *MessageHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	messages, err := h.messageService.GetByRoomID(r.Context(), roomID, claims.UserID, limit, offset)
+	// after_id: fetch messages after this ID (for reconnection scenarios)
+	if a := r.URL.Query().Get("after_id"); a != "" {
+		if parsed, err := strconv.ParseUint(a, 10, 64); err == nil {
+			afterID = parsed
+		}
+	}
+
+	var messages []*models.MessageResponse
+
+	if afterID > 0 {
+		// Use after_id query (ignores offset)
+		messages, err = h.messageService.GetByRoomIDAfter(r.Context(), roomID, claims.UserID, afterID, limit)
+	} else {
+		// Use standard pagination
+		messages, err = h.messageService.GetByRoomID(r.Context(), roomID, claims.UserID, limit, offset)
+	}
+
 	if err != nil {
 		if errors.Is(err, service.ErrNotMember) {
 			respondError(w, http.StatusForbidden, "You are not a member of this room")
