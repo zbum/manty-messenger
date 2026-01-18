@@ -90,6 +90,38 @@ func (r *MessageRepository) GetByRoomID(ctx context.Context, roomID uint64, limi
 	return messages, nil
 }
 
+// GetByRoomIDAfter returns messages after the given message ID (for fetching missed messages)
+func (r *MessageRepository) GetByRoomIDAfter(ctx context.Context, roomID uint64, afterID uint64, limit int) ([]*models.Message, error) {
+	query := `
+		SELECT id, room_id, sender_id, content, message_type, file_url, thumbnail_url, is_edited, is_deleted, created_at, updated_at
+		FROM messages
+		WHERE room_id = ? AND id > ? AND is_deleted = FALSE
+		ORDER BY id ASC
+		LIMIT ?
+	`
+	rows, err := r.db.QueryContext(ctx, query, roomID, afterID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []*models.Message
+	for rows.Next() {
+		msg := &models.Message{}
+		err := rows.Scan(
+			&msg.ID, &msg.RoomID, &msg.SenderID, &msg.Content, &msg.MessageType,
+			&msg.FileURL, &msg.ThumbnailURL, &msg.IsEdited, &msg.IsDeleted,
+			&msg.CreatedAt, &msg.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		messages = append(messages, msg)
+	}
+
+	return messages, nil
+}
+
 func (r *MessageRepository) Update(ctx context.Context, msg *models.Message) error {
 	query := `
 		UPDATE messages SET content = ?, is_edited = TRUE, updated_at = NOW()

@@ -94,6 +94,40 @@ func (s *MessageService) GetByRoomID(ctx context.Context, roomID, userID uint64,
 	return responses, nil
 }
 
+// GetByRoomIDAfter returns messages after a given message ID (for reconnection)
+func (s *MessageService) GetByRoomIDAfter(ctx context.Context, roomID, userID, afterID uint64, limit int) ([]*models.MessageResponse, error) {
+	isMember, err := s.memberRepo.IsMember(ctx, roomID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, ErrNotMember
+	}
+
+	messages, err := s.messageRepo.GetByRoomIDAfter(ctx, roomID, afterID, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache users
+	userCache := make(map[uint64]*models.UserResponse)
+
+	var responses []*models.MessageResponse
+	for _, msg := range messages {
+		sender, ok := userCache[msg.SenderID]
+		if !ok {
+			user, err := s.userRepo.GetByID(ctx, msg.SenderID)
+			if err == nil {
+				sender = user.ToResponse()
+				userCache[msg.SenderID] = sender
+			}
+		}
+		unreadCount, _ := s.messageRepo.GetUnreadCount(ctx, roomID, msg.CreatedAt, msg.SenderID)
+		responses = append(responses, msg.ToResponse(sender, unreadCount))
+	}
+	return responses, nil
+}
+
 func (s *MessageService) GetByID(ctx context.Context, roomID, msgID, userID uint64) (*models.MessageResponse, error) {
 	isMember, err := s.memberRepo.IsMember(ctx, roomID, userID)
 	if err != nil {

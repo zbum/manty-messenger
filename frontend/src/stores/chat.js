@@ -15,7 +15,10 @@ export const useChatStore = defineStore('chat', {
     error: null,
     // 웹소켓 연결 상태
     connectionState: ConnectionState.DISCONNECTED,
-    offlineQueueCount: 0
+    offlineQueueCount: 0,
+    // 무한 스크롤 관련
+    loadingMore: false,
+    hasMore: {} // roomId별로 더 불러올 메시지가 있는지
   }),
 
   getters: {
@@ -36,9 +39,22 @@ export const useChatStore = defineStore('chat', {
   actions: {
     initWebSocketListeners() {
       // 연결 상태 변경 리스너 등록
+      let previousState = null
       websocket.onConnectionStateChange((state) => {
+        const wasDisconnected = previousState === ConnectionState.RECONNECTING ||
+                                previousState === ConnectionState.DISCONNECTED
+        const isNowConnected = state === ConnectionState.CONNECTED
+
         this.connectionState = state
         this.offlineQueueCount = websocket.getOfflineQueueCount()
+
+        // 재연결 완료 시 현재 방의 놓친 메시지 가져오기
+        if (wasDisconnected && isNowConnected && this.currentRoom) {
+          console.log('Reconnected, fetching missed messages for room:', this.currentRoom.id)
+          this.fetchMissedMessages(this.currentRoom.id)
+        }
+
+        previousState = state
       })
 
       websocket.on('new_message', (payload) => {
@@ -136,11 +152,80 @@ export const useChatStore = defineStore('chat', {
 
         if (offset === 0) {
           this.messages[roomId] = messages
+          // 초기 로드 시 더 불러올 메시지가 있는지 확인
+          this.hasMore[roomId] = messages.length >= limit
         } else {
           this.messages[roomId] = [...messages, ...this.messages[roomId]]
         }
       } catch (error) {
         console.error('Failed to fetch messages', error)
+      }
+    },
+
+    // 이전 메시지 더 불러오기 (무한 스크롤)
+    async loadMoreMessages(roomId) {
+      if (this.loadingMore || !this.hasMore[roomId]) {
+        return false
+      }
+
+      const currentMessages = this.messages[roomId] || []
+      if (currentMessages.length === 0) {
+        return false
+      }
+
+      this.loadingMore = true
+
+      try {
+        const limit = 50
+        const offset = currentMessages.length
+
+        const response = await api.get(`/rooms/${roomId}/messages`, {
+          params: { limit, offset }
+        })
+        const olderMessages = response.data || []
+
+        if (olderMessages.length > 0) {
+          // 이전 메시지를 앞에 추가
+          this.messages[roomId] = [...olderMessages, ...currentMessages]
+        }
+
+        // 더 불러올 메시지가 있는지 확인
+        this.hasMore[roomId] = olderMessages.length >= limit
+
+        return olderMessages.length > 0
+      } catch (error) {
+        console.error('Failed to load more messages', error)
+        return false
+      } finally {
+        this.loadingMore = false
+      }
+    },
+
+    // 재연결 시 놓친 메시지 가져오기
+    async fetchMissedMessages(roomId) {
+      try {
+        const existingMessages = this.messages[roomId] || []
+        const lastMessageId = existingMessages.length > 0
+          ? Math.max(...existingMessages.map(m => m.id))
+          : 0
+
+        // after_id를 사용해서 놓친 메시지만 가져오기
+        const response = await api.get(`/rooms/${roomId}/messages`, {
+          params: { after_id: lastMessageId, limit: 100 }
+        })
+        const missedMessages = response.data || []
+
+        if (missedMessages.length > 0) {
+          console.log(`Found ${missedMessages.length} missed messages`)
+          // 기존 메시지 목록에 추가
+          this.messages[roomId] = [...existingMessages, ...missedMessages]
+
+          // 마지막 메시지 읽음 처리
+          const lastMessage = missedMessages[missedMessages.length - 1]
+          this.markRead(roomId, lastMessage.id)
+        }
+      } catch (error) {
+        console.error('Failed to fetch missed messages', error)
       }
     },
 
@@ -324,6 +409,8 @@ export const useChatStore = defineStore('chat', {
       this.error = null
       this.connectionState = ConnectionState.DISCONNECTED
       this.offlineQueueCount = 0
+      this.loadingMore = false
+      this.hasMore = {}
       localStorage.removeItem('currentRoomId')
     }
   }
