@@ -1,3 +1,5 @@
+import { getValidToken } from './keycloak'
+
 // 연결 상태 상수
 const ConnectionState = {
   DISCONNECTED: 'disconnected',
@@ -138,7 +140,7 @@ class WebSocketService {
         // Only reconnect if not intentionally disconnected (e.g., logout)
         if (!this.intentionalDisconnect) {
           this.setConnectionState(ConnectionState.RECONNECTING)
-          this.handleReconnect(token)
+          this.handleReconnect()
         } else {
           this.setConnectionState(ConnectionState.DISCONNECTED)
         }
@@ -273,7 +275,7 @@ class WebSocketService {
     this.send('mark_read', { room_id: roomId, message_id: messageId })
   }
 
-  handleReconnect(token) {
+  async handleReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++
       // exponential backoff with max delay cap
@@ -282,7 +284,18 @@ class WebSocketService {
         this.maxReconnectDelay
       )
       console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`)
-      this.reconnectTimeout = setTimeout(() => this.connect(token), delay)
+      this.reconnectTimeout = setTimeout(async () => {
+        // 재연결 시 항상 새로운 토큰을 가져옴
+        const freshToken = await getValidToken()
+        if (freshToken) {
+          console.log('Using fresh token for reconnection')
+          this.connect(freshToken)
+        } else {
+          console.error('Failed to get fresh token for reconnection')
+          // 토큰을 가져올 수 없으면 재연결 시도
+          this.handleReconnect()
+        }
+      }, delay)
     } else {
       console.error('Max reconnection attempts reached')
       this.setConnectionState(ConnectionState.DISCONNECTED)
@@ -327,15 +340,26 @@ class WebSocketService {
   }
 
   // 수동 재연결
-  reconnect() {
-    if (this.currentToken && !this.isConnecting && !this.isConnected) {
+  async reconnect() {
+    if (!this.isConnecting && !this.isConnected) {
       console.log('Manual reconnect triggered')
       this.reconnectAttempts = 0
       if (this.reconnectTimeout) {
         clearTimeout(this.reconnectTimeout)
         this.reconnectTimeout = null
       }
-      this.connect(this.currentToken)
+      // 새로운 토큰을 가져와서 재연결
+      const freshToken = await getValidToken()
+      if (freshToken) {
+        console.log('Using fresh token for manual reconnection')
+        this.connect(freshToken)
+      } else if (this.currentToken) {
+        // 새 토큰을 가져올 수 없으면 기존 토큰으로 시도
+        console.log('Using existing token for manual reconnection')
+        this.connect(this.currentToken)
+      } else {
+        console.error('No token available for reconnection')
+      }
     }
   }
 
@@ -345,7 +369,7 @@ class WebSocketService {
     this.visibilityHandlerSetup = true
 
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && this.currentToken) {
+      if (document.visibilityState === 'visible') {
         // 페이지가 다시 보이면 연결 상태 확인 후 재연결
         if (!this.isConnected && !this.isConnecting) {
           console.log('Page became visible, attempting reconnect')
@@ -356,7 +380,7 @@ class WebSocketService {
 
     // 온라인 상태로 돌아오면 재연결
     window.addEventListener('online', () => {
-      if (this.currentToken && !this.isConnected && !this.isConnecting) {
+      if (!this.isConnected && !this.isConnecting) {
         console.log('Network online, attempting reconnect')
         this.reconnect()
       }
