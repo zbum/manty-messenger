@@ -29,7 +29,8 @@ export const useAuthStore = defineStore('auth', {
         console.error('Logout error', error)
       }
 
-      websocket.disconnect()
+      // 로그아웃 시 완전 초기화
+      websocket.cleanup()
 
       const chatStore = useChatStore()
       chatStore.reset()

@@ -360,6 +360,7 @@ class WebSocketService {
     }
 
     console.log('Manual reconnect triggered')
+    this.intentionalDisconnect = false  // 재연결 허용
     this.reconnectAttempts = 0
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout)
@@ -417,6 +418,7 @@ class WebSocketService {
     })
   }
 
+  // 연결만 끊기 (리스너 유지, 재연결 가능)
   disconnect() {
     this.intentionalDisconnect = true
     this.stopHeartbeat()
@@ -428,13 +430,18 @@ class WebSocketService {
       this.socket.close()
       this.socket = null
     }
-    this.listeners.clear()
     this.reconnectAttempts = 0
-    this.currentRoomId = null
     this.pendingMessages = []
-    this.currentToken = null
     this.setConnectionState(ConnectionState.DISCONNECTED)
+  }
+
+  // 완전 초기화 (로그아웃 시 사용)
+  cleanup() {
+    this.disconnect()
+    this.listeners.clear()
     this.connectionStateListeners = []
+    this.currentRoomId = null
+    this.currentToken = null
   }
 
   generateId() {
