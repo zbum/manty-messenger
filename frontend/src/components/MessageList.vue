@@ -93,6 +93,14 @@ const isMyMessage = (message) => {
   return message.sender?.id === currentUserId.value
 }
 
+const isSending = (message) => {
+  return message.status === 'sending'
+}
+
+const isFailed = (message) => {
+  return message.status === 'failed'
+}
+
 const getInitial = (name) => {
   return name?.charAt(0).toUpperCase() || '?'
 }
@@ -188,7 +196,11 @@ const openImage = (message) => {
       v-for="message in messages"
       :key="message.id"
       class="message-wrapper"
-      :class="{ 'my-message': isMyMessage(message) }"
+      :class="{
+        'my-message': isMyMessage(message),
+        'sending': isSending(message),
+        'failed': isFailed(message)
+      }"
     >
       <div v-if="!isMyMessage(message)" class="message-avatar">
         {{ getInitial(message.sender?.username) }}
@@ -481,6 +493,49 @@ const openImage = (message) => {
   padding: 2px 6px;
   border-radius: 10px;
   margin-right: 4px;
+}
+
+/* 전송 중 상태 스타일 */
+.message-wrapper.sending {
+  opacity: 0.7;
+}
+
+.message-wrapper.sending .message-bubble {
+  background: #6cb2f5;
+}
+
+.message-wrapper.sending .message-time::after {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 4px;
+  border: 2px solid #999;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
+}
+
+/* 전송 실패 상태 스타일 */
+.message-wrapper.failed .message-bubble {
+  background: #dc3545;
+}
+
+.message-wrapper.failed .message-time::after {
+  content: '!';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  background: #dc3545;
+  color: white;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: bold;
+  vertical-align: middle;
 }
 
 /* Mobile Responsive Styles */
