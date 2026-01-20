@@ -33,6 +33,7 @@ type RoomResponse struct {
 	AvatarURL   *string   `json:"avatar_url"`
 	MaxMembers  int       `json:"max_members"`
 	MemberCount int       `json:"member_count,omitempty"`
+	UnreadCount int       `json:"unread_count"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 

@@ -105,7 +105,7 @@ func main() {
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, db)
-	roomService := service.NewRoomService(roomRepo, memberRepo, userRepo)
+	roomService := service.NewRoomService(roomRepo, memberRepo, userRepo, messageRepo)
 	messageService := service.NewMessageService(messageRepo, memberRepo, userRepo)
 	pushService := service.NewPushService(pushRepo, memberRepo, &cfg.WebPush)
 

@@ -16,16 +16,18 @@ var (
 )
 
 type RoomService struct {
-	roomRepo       *repository.RoomRepository
-	memberRepo     *repository.RoomMemberRepository
-	userRepo       *repository.UserRepository
+	roomRepo    *repository.RoomRepository
+	memberRepo  *repository.RoomMemberRepository
+	userRepo    *repository.UserRepository
+	messageRepo *repository.MessageRepository
 }
 
-func NewRoomService(roomRepo *repository.RoomRepository, memberRepo *repository.RoomMemberRepository, userRepo *repository.UserRepository) *RoomService {
+func NewRoomService(roomRepo *repository.RoomRepository, memberRepo *repository.RoomMemberRepository, userRepo *repository.UserRepository, messageRepo *repository.MessageRepository) *RoomService {
 	return &RoomService{
-		roomRepo:   roomRepo,
-		memberRepo: memberRepo,
-		userRepo:   userRepo,
+		roomRepo:    roomRepo,
+		memberRepo:  memberRepo,
+		userRepo:    userRepo,
+		messageRepo: messageRepo,
 	}
 }
 
@@ -102,11 +104,17 @@ func (s *RoomService) GetByUserID(ctx context.Context, userID uint64) ([]*models
 		return nil, err
 	}
 
+	// Get unread counts for all rooms at once
+	unreadCounts, _ := s.messageRepo.GetUnreadCountsForUser(ctx, userID)
+
 	var responses []*models.RoomResponse
 	for _, room := range rooms {
 		resp := room.ToResponse()
 		count, _ := s.roomRepo.GetMemberCount(ctx, room.ID)
 		resp.MemberCount = count
+		if unreadCounts != nil {
+			resp.UnreadCount = unreadCounts[room.ID]
+		}
 		responses = append(responses, resp)
 	}
 	return responses, nil

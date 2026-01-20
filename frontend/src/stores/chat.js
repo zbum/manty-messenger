@@ -77,6 +77,9 @@ export const useChatStore = defineStore('chat', {
         const isMyMessage = payload.sender?.id === authStore.user?.id
 
         if (!isCurrentRoom && !isMyMessage) {
+          // 안 읽은 메시지 카운트 증가
+          this.incrementRoomUnreadCount(payload.room_id)
+
           const room = this.rooms.find(r => r.id === payload.room_id)
           if (room) {
             notificationService.showNewMessage(message, room, () => {
@@ -300,6 +303,9 @@ export const useChatStore = defineStore('chat', {
 
       // Save to localStorage for persistence
       localStorage.setItem('currentRoomId', room.id.toString())
+
+      // 방 입장 시 안 읽은 메시지 수 초기화
+      this.clearRoomUnreadCount(room.id)
 
       if (!this.messages[room.id]) {
         // 처음 입장하는 방: 메시지 로드
@@ -534,6 +540,22 @@ export const useChatStore = defineStore('chat', {
             msg.unread_count--
           }
         })
+      }
+    },
+
+    // 특정 방의 안 읽은 메시지 수 증가
+    incrementRoomUnreadCount(roomId) {
+      const room = this.rooms.find(r => r.id === roomId)
+      if (room) {
+        room.unread_count = (room.unread_count || 0) + 1
+      }
+    },
+
+    // 특정 방의 안 읽은 메시지 수 초기화 (방 입장 시)
+    clearRoomUnreadCount(roomId) {
+      const room = this.rooms.find(r => r.id === roomId)
+      if (room) {
+        room.unread_count = 0
       }
     },
 

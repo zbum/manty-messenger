@@ -149,3 +149,49 @@ func (r *MessageRepository) GetUnreadCount(ctx context.Context, roomID uint64, m
 	err := r.db.QueryRowContext(ctx, query, roomID, senderID, messageCreatedAt).Scan(&count)
 	return count, err
 }
+
+// GetUnreadCountForUser returns the number of unread messages for a user in a specific room
+func (r *MessageRepository) GetUnreadCountForUser(ctx context.Context, roomID uint64, userID uint64) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM messages m
+		JOIN room_members rm ON rm.room_id = m.room_id AND rm.user_id = ?
+		WHERE m.room_id = ?
+		AND m.is_deleted = FALSE
+		AND m.sender_id != ?
+		AND (rm.last_read_at IS NULL OR m.created_at > rm.last_read_at)
+	`
+	var count int
+	err := r.db.QueryRowContext(ctx, query, userID, roomID, userID).Scan(&count)
+	return count, err
+}
+
+// GetUnreadCountsForUser returns the unread message counts for all rooms of a user
+func (r *MessageRepository) GetUnreadCountsForUser(ctx context.Context, userID uint64) (map[uint64]int, error) {
+	query := `
+		SELECT rm.room_id, COUNT(m.id) as unread_count
+		FROM room_members rm
+		LEFT JOIN messages m ON m.room_id = rm.room_id
+			AND m.is_deleted = FALSE
+			AND m.sender_id != ?
+			AND (rm.last_read_at IS NULL OR m.created_at > rm.last_read_at)
+		WHERE rm.user_id = ?
+		GROUP BY rm.room_id
+	`
+	rows, err := r.db.QueryContext(ctx, query, userID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	counts := make(map[uint64]int)
+	for rows.Next() {
+		var roomID uint64
+		var count int
+		if err := rows.Scan(&roomID, &count); err != nil {
+			return nil, err
+		}
+		counts[roomID] = count
+	}
+	return counts, nil
+}
