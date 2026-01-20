@@ -125,6 +125,9 @@ export const useChatStore = defineStore('chat', {
         console.log('Authentication required, redirecting to login')
         keycloakLogin()
       })
+
+      // 브라우저 활성화 시 메시지 동기화 핸들러 설정
+      this.setupVisibilityHandler()
     },
 
     async fetchRooms() {
@@ -205,8 +208,10 @@ export const useChatStore = defineStore('chat', {
     async fetchMissedMessages(roomId) {
       try {
         const existingMessages = this.messages[roomId] || []
-        const lastMessageId = existingMessages.length > 0
-          ? Math.max(...existingMessages.map(m => m.id))
+        // 임시 ID(temp_로 시작하는)를 제외한 실제 메시지 중 최대 ID 찾기
+        const realMessages = existingMessages.filter(m => !String(m.id).startsWith('temp_'))
+        const lastMessageId = realMessages.length > 0
+          ? Math.max(...realMessages.map(m => m.id))
           : 0
 
         // after_id를 사용해서 놓친 메시지만 가져오기
@@ -217,8 +222,10 @@ export const useChatStore = defineStore('chat', {
 
         if (missedMessages.length > 0) {
           console.log(`Found ${missedMessages.length} missed messages`)
-          // 기존 메시지 목록에 추가
-          this.messages[roomId] = [...existingMessages, ...missedMessages]
+          // addMessage를 통해 추가 (중복 체크 포함)
+          missedMessages.forEach(msg => {
+            this.addMessage(roomId, msg)
+          })
 
           // 마지막 메시지 읽음 처리
           const lastMessage = missedMessages[missedMessages.length - 1]
@@ -227,6 +234,42 @@ export const useChatStore = defineStore('chat', {
       } catch (error) {
         console.error('Failed to fetch missed messages', error)
       }
+    },
+
+    // 브라우저 활성화 시 메시지 동기화 (iOS 대응)
+    async syncMessagesOnResume() {
+      if (!this.currentRoom) return
+
+      console.log('Syncing messages on browser resume for room:', this.currentRoom.id)
+      await this.fetchMissedMessages(this.currentRoom.id)
+    },
+
+    // 페이지 가시성 변경 핸들러 설정
+    setupVisibilityHandler() {
+      if (this._visibilityHandlerSetup) return
+      this._visibilityHandlerSetup = true
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          console.log('Page became visible, syncing messages...')
+          // 연결 상태와 관계없이 메시지 동기화 시도
+          this.syncMessagesOnResume()
+        }
+      })
+
+      // iOS Safari에서 페이지가 다시 활성화될 때
+      window.addEventListener('pageshow', (event) => {
+        if (event.persisted) {
+          console.log('Page restored from bfcache, syncing messages...')
+          this.syncMessagesOnResume()
+        }
+      })
+
+      // 포커스 이벤트 (탭 전환 시)
+      window.addEventListener('focus', () => {
+        console.log('Window focused, syncing messages...')
+        this.syncMessagesOnResume()
+      })
     },
 
     async createRoom(name, description = '', roomType = 'group', memberIds = []) {
@@ -259,7 +302,11 @@ export const useChatStore = defineStore('chat', {
       localStorage.setItem('currentRoomId', room.id.toString())
 
       if (!this.messages[room.id]) {
+        // 처음 입장하는 방: 메시지 로드
         await this.fetchMessages(room.id)
+      } else {
+        // 이미 메시지가 있는 방: 놓친 메시지 동기화
+        await this.fetchMissedMessages(room.id)
       }
 
       // Mark messages as read
@@ -287,21 +334,85 @@ export const useChatStore = defineStore('chat', {
       }
     },
 
+    // 임시 ID 생성
+    generateTempId() {
+      return `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    },
+
     sendMessage(content) {
       if (!this.currentRoom || !content.trim()) return
 
+      const authStore = useAuthStore()
+      const tempId = this.generateTempId()
+
+      // 낙관적 업데이트: 즉시 화면에 표시
+      const optimisticMessage = {
+        id: tempId,
+        room_id: this.currentRoom.id,
+        sender: {
+          id: authStore.user?.id,
+          username: authStore.user?.username
+        },
+        content: content.trim(),
+        message_type: 'text',
+        created_at: new Date().toISOString(),
+        status: 'sending',  // 전송 중 상태
+        tempId: tempId  // 나중에 매칭용
+      }
+
+      this.addMessage(this.currentRoom.id, optimisticMessage)
       websocket.sendMessage(this.currentRoom.id, content.trim())
     },
 
     sendFileMessage(content, messageType, fileUrl, thumbnailUrl) {
       if (!this.currentRoom || !fileUrl) return
 
+      const authStore = useAuthStore()
+      const tempId = this.generateTempId()
+
+      // 낙관적 업데이트
+      const optimisticMessage = {
+        id: tempId,
+        room_id: this.currentRoom.id,
+        sender: {
+          id: authStore.user?.id,
+          username: authStore.user?.username
+        },
+        content: content,
+        message_type: messageType,
+        file_url: fileUrl,
+        thumbnail_url: thumbnailUrl,
+        created_at: new Date().toISOString(),
+        status: 'sending',
+        tempId: tempId
+      }
+
+      this.addMessage(this.currentRoom.id, optimisticMessage)
       websocket.sendMessage(this.currentRoom.id, content, messageType, fileUrl, thumbnailUrl)
     },
 
     sendStickerMessage(stickerId) {
       if (!this.currentRoom || !stickerId) return
 
+      const authStore = useAuthStore()
+      const tempId = this.generateTempId()
+
+      // 낙관적 업데이트
+      const optimisticMessage = {
+        id: tempId,
+        room_id: this.currentRoom.id,
+        sender: {
+          id: authStore.user?.id,
+          username: authStore.user?.username
+        },
+        content: stickerId,
+        message_type: 'sticker',
+        created_at: new Date().toISOString(),
+        status: 'sending',
+        tempId: tempId
+      }
+
+      this.addMessage(this.currentRoom.id, optimisticMessage)
       websocket.sendMessage(this.currentRoom.id, stickerId, 'sticker')
     },
 
@@ -309,11 +420,49 @@ export const useChatStore = defineStore('chat', {
       if (!this.messages[roomId]) {
         this.messages[roomId] = []
       }
+
+      const authStore = useAuthStore()
+      const isMyMessage = message.sender?.id === authStore.user?.id
+
+      // 내가 보낸 메시지인 경우: 낙관적 업데이트된 메시지와 매칭
+      if (isMyMessage && !message.tempId) {
+        // 서버에서 온 메시지 - 같은 내용의 sending 상태 메시지 찾기
+        const pendingIndex = this.messages[roomId].findIndex(m =>
+          m.status === 'sending' &&
+          m.sender?.id === message.sender?.id &&
+          m.content === message.content &&
+          m.message_type === (message.message_type || 'text')
+        )
+
+        if (pendingIndex !== -1) {
+          // 기존 임시 메시지를 서버 메시지로 교체
+          this.messages[roomId][pendingIndex] = {
+            ...message,
+            status: 'sent'
+          }
+          return
+        }
+      }
+
+      // ID 기반 중복 체크 (재연결 시 중복 메시지 방지)
+      if (message.id && !String(message.id).startsWith('temp_')) {
+        const existingIndex = this.messages[roomId].findIndex(m => m.id === message.id)
+        if (existingIndex !== -1) {
+          // 이미 존재하는 메시지 - 업데이트만
+          this.messages[roomId][existingIndex] = {
+            ...this.messages[roomId][existingIndex],
+            ...message,
+            status: 'sent'
+          }
+          return
+        }
+      }
+
+      // 새 메시지 추가
       this.messages[roomId].push(message)
 
       // If user is viewing this room AND not the sender, mark as read
-      const authStore = useAuthStore()
-      if (this.currentRoom?.id === roomId && message.sender?.id !== authStore.user?.id) {
+      if (this.currentRoom?.id === roomId && !isMyMessage) {
         this.markRead(roomId, message.id)
       }
     },
