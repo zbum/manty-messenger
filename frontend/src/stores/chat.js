@@ -123,6 +123,11 @@ export const useChatStore = defineStore('chat', {
         }
       })
 
+      // 안 읽음 카운트 업데이트 (새 메시지가 왔을 때 서버에서 전송)
+      websocket.on('unread_count_update', (payload) => {
+        this.updateRoomUnreadCount(payload.room_id, payload.unread_count)
+      })
+
       // 인증이 필요할 때 (토큰 만료 등)
       websocket.on('auth_required', () => {
         console.log('Authentication required, redirecting to login')
@@ -548,6 +553,18 @@ export const useChatStore = defineStore('chat', {
       const room = this.rooms.find(r => r.id === roomId)
       if (room) {
         room.unread_count = (room.unread_count || 0) + 1
+      }
+    },
+
+    // 특정 방의 안 읽은 메시지 수 업데이트 (서버에서 전송한 값으로 설정)
+    updateRoomUnreadCount(roomId, unreadCount) {
+      // 현재 보고 있는 방이면 무시 (이미 읽음 처리됨)
+      if (this.currentRoom?.id === roomId) {
+        return
+      }
+      const room = this.rooms.find(r => r.id === roomId)
+      if (room) {
+        room.unread_count = unreadCount
       }
     },
 
