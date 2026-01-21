@@ -214,6 +214,94 @@ const openImage = (message) => {
   const url = getFileUrl(message.file_url)
   window.open(url, '_blank')
 }
+
+// URL 패턴 정규식
+const urlPattern = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/gi
+
+// 유튜브 URL 패턴
+const youtubePattern = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be|m\.youtube\.com)/i
+
+// 모바일 기기 감지
+const isMobile = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+}
+
+// 유튜브 URL인지 확인
+const isYouTubeUrl = (url) => {
+  return youtubePattern.test(url)
+}
+
+// 유튜브 앱 딥링크로 변환
+const getYouTubeAppUrl = (url) => {
+  // youtube.com/watch?v=VIDEO_ID 또는 youtu.be/VIDEO_ID 에서 비디오 ID 추출
+  let videoId = null
+
+  if (url.includes('youtu.be/')) {
+    videoId = url.split('youtu.be/')[1]?.split(/[?&#]/)[0]
+  } else if (url.includes('youtube.com/watch')) {
+    const urlParams = new URL(url).searchParams
+    videoId = urlParams.get('v')
+  } else if (url.includes('youtube.com/shorts/')) {
+    videoId = url.split('youtube.com/shorts/')[1]?.split(/[?&#]/)[0]
+  }
+
+  if (videoId) {
+    // 유튜브 앱 딥링크 (iOS와 Android 모두 지원)
+    return `vnd.youtube://${videoId}`
+  }
+  return url
+}
+
+// 링크 클릭 핸들러
+const handleLinkClick = (event) => {
+  const target = event.target
+  if (target.tagName === 'A' && target.classList.contains('message-link')) {
+    event.preventDefault()
+    const url = target.getAttribute('href')
+
+    if (isMobile() && isYouTubeUrl(url)) {
+      // 모바일 + 유튜브: 앱 열기 시도, 실패 시 브라우저로 폴백
+      const appUrl = getYouTubeAppUrl(url)
+      const startTime = Date.now()
+
+      // 앱 열기 시도
+      window.location.href = appUrl
+
+      // 2.5초 후에도 페이지에 있으면 브라우저에서 열기 (앱이 없는 경우)
+      setTimeout(() => {
+        if (Date.now() - startTime < 3000) {
+          window.open(url, '_blank')
+        }
+      }, 2500)
+    } else {
+      // 그 외: 새 탭에서 열기
+      window.open(url, '_blank')
+    }
+  }
+}
+
+// 텍스트에서 URL을 찾아 링크로 변환
+const parseMessageContent = (content) => {
+  if (!content) return ''
+
+  // HTML 특수문자 이스케이프 (XSS 방지)
+  const escapeHtml = (text) => {
+    const div = document.createElement('div')
+    div.textContent = text
+    return div.innerHTML
+  }
+
+  // URL을 찾아서 링크로 변환
+  const parts = content.split(urlPattern)
+
+  return parts.map(part => {
+    if (urlPattern.test(part)) {
+      const escapedUrl = escapeHtml(part)
+      return `<a href="${escapedUrl}" class="message-link" @click.prevent>${escapedUrl}</a>`
+    }
+    return escapeHtml(part)
+  }).join('')
+}
 </script>
 
 <template>
@@ -284,8 +372,7 @@ const openImage = (message) => {
         </div>
 
         <!-- Text Message -->
-        <div v-else class="message-bubble">
-          {{ message.content }}
+        <div v-else class="message-bubble" @click="handleLinkClick" v-html="parseMessageContent(message.content)">
         </div>
 
         <div class="message-time">
@@ -409,6 +496,26 @@ const openImage = (message) => {
   color: white;
   border-radius: 18px;
   border-top-right-radius: 4px;
+}
+
+/* 메시지 내 링크 스타일 */
+.message-bubble :deep(.message-link) {
+  color: #0066cc;
+  text-decoration: underline;
+  cursor: pointer;
+  word-break: break-all;
+}
+
+.message-bubble :deep(.message-link:hover) {
+  color: #004499;
+}
+
+.my-message .message-bubble :deep(.message-link) {
+  color: #cce5ff;
+}
+
+.my-message .message-bubble :deep(.message-link:hover) {
+  color: white;
 }
 
 /* Sticker Message Styles */
