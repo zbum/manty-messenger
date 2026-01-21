@@ -18,17 +18,18 @@ const (
 	TypePing        MessageType = "ping"
 
 	// Server -> Client
-	TypeNewMessage     MessageType = "new_message"
-	TypeMessageRead    MessageType = "message_read"
-	TypeUserJoined     MessageType = "user_joined"
-	TypeUserLeft       MessageType = "user_left"
-	TypeUserTyping     MessageType = "user_typing"
-	TypePresenceUpdate MessageType = "presence_update"
-	TypeError          MessageType = "error"
-	TypePong           MessageType = "pong"
-	TypeRoomJoined     MessageType = "room_joined"
-	TypeRoomLeft       MessageType = "room_left"
-	TypeRoomInvited    MessageType = "room_invited"
+	TypeNewMessage        MessageType = "new_message"
+	TypeMessageRead       MessageType = "message_read"
+	TypeUserJoined        MessageType = "user_joined"
+	TypeUserLeft          MessageType = "user_left"
+	TypeUserTyping        MessageType = "user_typing"
+	TypePresenceUpdate    MessageType = "presence_update"
+	TypeError             MessageType = "error"
+	TypePong              MessageType = "pong"
+	TypeRoomJoined        MessageType = "room_joined"
+	TypeRoomLeft          MessageType = "room_left"
+	TypeRoomInvited       MessageType = "room_invited"
+	TypeUnreadCountUpdate MessageType = "unread_count_update"
 )
 
 type RoomInvitedPayload struct {
@@ -133,4 +134,9 @@ type RoomJoinedPayload struct {
 
 type RoomLeftPayload struct {
 	RoomID uint64 `json:"room_id"`
+}
+
+type UnreadCountUpdatePayload struct {
+	RoomID      uint64 `json:"room_id"`
+	UnreadCount int    `json:"unread_count"`
 }

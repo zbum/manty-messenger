@@ -122,7 +122,7 @@ func main() {
 	pushHandler := handler.NewPushHandler(pushService)
 
 	// Initialize WebSocket handler
-	wsHandler := websocket.NewHandler(hub, keycloakService, authService, messageService, pushService, memberRepo, userRepo, roomRepo)
+	wsHandler := websocket.NewHandler(hub, keycloakService, authService, messageService, pushService, memberRepo, userRepo, roomRepo, messageRepo)
 
 	// User lookup function for auth middleware
 	userLookupFunc := func(ctx context.Context, keycloakClaims *keycloak.Claims) (*middleware.UserClaims, error) {

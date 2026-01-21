@@ -32,9 +32,10 @@ type Handler struct {
 	memberRepo      *repository.RoomMemberRepository
 	userRepo        *repository.UserRepository
 	roomRepo        *repository.RoomRepository
+	messageRepo     *repository.MessageRepository
 }
 
-func NewHandler(hub *Hub, keycloakService *keycloak.Service, authService *service.AuthService, messageService *service.MessageService, pushService *service.PushService, memberRepo *repository.RoomMemberRepository, userRepo *repository.UserRepository, roomRepo *repository.RoomRepository) *Handler {
+func NewHandler(hub *Hub, keycloakService *keycloak.Service, authService *service.AuthService, messageService *service.MessageService, pushService *service.PushService, memberRepo *repository.RoomMemberRepository, userRepo *repository.UserRepository, roomRepo *repository.RoomRepository, messageRepo *repository.MessageRepository) *Handler {
 	return &Handler{
 		hub:             hub,
 		keycloakService: keycloakService,
@@ -44,6 +45,7 @@ func NewHandler(hub *Hub, keycloakService *keycloak.Service, authService *servic
 		memberRepo:      memberRepo,
 		userRepo:        userRepo,
 		roomRepo:        roomRepo,
+		messageRepo:     messageRepo,
 	}
 }
 
@@ -234,6 +236,40 @@ func (h *Handler) handleSendMessage(client *Client, msg *WSMessage) {
 		// Send to all room members including sender
 		h.hub.BroadcastToRoom(payload.RoomID, data, nil)
 	}
+
+	// Send unread count updates to all room members (except sender)
+	go func() {
+		memberIDs, err := h.memberRepo.GetUserIDsByRoomID(context.Background(), payload.RoomID)
+		if err != nil {
+			log.Printf("Failed to get room members for unread count update: %v", err)
+			return
+		}
+
+		for _, memberID := range memberIDs {
+			if memberID == client.UserID {
+				continue // Skip sender
+			}
+
+			unreadCount, err := h.messageRepo.GetUnreadCountForUser(context.Background(), payload.RoomID, memberID)
+			if err != nil {
+				log.Printf("Failed to get unread count for user %d: %v", memberID, err)
+				continue
+			}
+
+			unreadNotification := &WSMessage{
+				Type: TypeUnreadCountUpdate,
+				Payload: UnreadCountUpdatePayload{
+					RoomID:      payload.RoomID,
+					UnreadCount: unreadCount,
+				},
+				Timestamp: time.Now(),
+			}
+
+			if data, err := marshalMessage(unreadNotification); err == nil {
+				h.hub.SendToUser(memberID, data)
+			}
+		}
+	}()
 
 	// Send push notification to offline users
 	if h.pushService != nil {
