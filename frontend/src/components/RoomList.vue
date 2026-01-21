@@ -35,8 +35,13 @@ const getInitial = (name) => {
       :class="{ active: currentRoom?.id === room.id }"
       @click="selectRoom(room)"
     >
-      <div class="room-avatar">
-        {{ getInitial(room.name) }}
+      <div class="room-avatar-wrapper">
+        <div class="room-avatar">
+          {{ getInitial(room.name) }}
+        </div>
+        <span v-if="room.unread_count > 0" class="unread-badge">
+          {{ room.unread_count > 99 ? '99+' : room.unread_count }}
+        </span>
       </div>
       <div class="room-info">
         <div class="room-name">{{ room.name }}</div>
@@ -89,6 +94,11 @@ const getInitial = (name) => {
   border-left: 3px solid #007bff;
 }
 
+.room-avatar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .room-avatar {
   width: 48px;
   height: 48px;
@@ -100,7 +110,24 @@ const getInitial = (name) => {
   justify-content: center;
   font-weight: bold;
   font-size: 18px;
-  flex-shrink: 0;
+}
+
+.unread-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: #ff4444;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .room-info {

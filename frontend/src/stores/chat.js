@@ -77,6 +77,9 @@ export const useChatStore = defineStore('chat', {
         const isMyMessage = payload.sender?.id === authStore.user?.id
 
         if (!isCurrentRoom && !isMyMessage) {
+          // 안 읽은 메시지 카운트 증가
+          this.incrementRoomUnreadCount(payload.room_id)
+
           const room = this.rooms.find(r => r.id === payload.room_id)
           if (room) {
             notificationService.showNewMessage(message, room, () => {
@@ -118,6 +121,11 @@ export const useChatStore = defineStore('chat', {
             this.joinRoom(payload.room)
           })
         }
+      })
+
+      // 안 읽음 카운트 업데이트 (새 메시지가 왔을 때 서버에서 전송)
+      websocket.on('unread_count_update', (payload) => {
+        this.updateRoomUnreadCount(payload.room_id, payload.unread_count)
       })
 
       // 인증이 필요할 때 (토큰 만료 등)
@@ -300,6 +308,9 @@ export const useChatStore = defineStore('chat', {
 
       // Save to localStorage for persistence
       localStorage.setItem('currentRoomId', room.id.toString())
+
+      // 방 입장 시 안 읽은 메시지 수 초기화
+      this.clearRoomUnreadCount(room.id)
 
       if (!this.messages[room.id]) {
         // 처음 입장하는 방: 메시지 로드
@@ -534,6 +545,34 @@ export const useChatStore = defineStore('chat', {
             msg.unread_count--
           }
         })
+      }
+    },
+
+    // 특정 방의 안 읽은 메시지 수 증가
+    incrementRoomUnreadCount(roomId) {
+      const room = this.rooms.find(r => r.id === roomId)
+      if (room) {
+        room.unread_count = (room.unread_count || 0) + 1
+      }
+    },
+
+    // 특정 방의 안 읽은 메시지 수 업데이트 (서버에서 전송한 값으로 설정)
+    updateRoomUnreadCount(roomId, unreadCount) {
+      // 현재 보고 있는 방이면 무시 (이미 읽음 처리됨)
+      if (this.currentRoom?.id === roomId) {
+        return
+      }
+      const room = this.rooms.find(r => r.id === roomId)
+      if (room) {
+        room.unread_count = unreadCount
+      }
+    },
+
+    // 특정 방의 안 읽은 메시지 수 초기화 (방 입장 시)
+    clearRoomUnreadCount(roomId) {
+      const room = this.rooms.find(r => r.id === roomId)
+      if (room) {
+        room.unread_count = 0
       }
     },
 
