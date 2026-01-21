@@ -82,11 +82,54 @@ onUnmounted(() => {
 })
 
 const formatTime = (dateString) => {
-  const date = new Date(dateString)
-  return date.toLocaleTimeString('ko-KR', {
+  if (!dateString) return ''
+
+  // 서버에서 받은 시간은 한국 시간(KST, UTC+9) 기준
+  // MySQL에 KST로 저장되어 있지만 서버가 Z(UTC)를 잘못 붙여서 보냄
+  // 따라서 Z를 제거하고 KST(+09:00)로 해석
+  let normalizedDateString = dateString
+
+  // Z로 끝나면 제거하고 KST로 해석
+  if (dateString.endsWith('Z')) {
+    normalizedDateString = dateString.slice(0, -1) + '+09:00'
+  } else if (!/[+-]\d{2}:\d{2}$/.test(dateString)) {
+    // 타임존 정보가 없으면 KST로 해석
+    normalizedDateString = dateString + '+09:00'
+  }
+
+  const date = new Date(normalizedDateString)
+
+  // 유효하지 않은 날짜 처리
+  if (isNaN(date.getTime())) return ''
+
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const diffDays = Math.floor((today - messageDate) / (1000 * 60 * 60 * 24))
+
+  // 디바이스 타임존으로 시간 표시
+  const timeOptions = {
     hour: '2-digit',
-    minute: '2-digit'
-  })
+    minute: '2-digit',
+    hour12: true
+  }
+
+  const timeStr = date.toLocaleTimeString('ko-KR', timeOptions)
+
+  // 오늘이면 시간만, 어제면 "어제", 그 외에는 날짜 포함
+  if (diffDays === 0) {
+    return timeStr
+  } else if (diffDays === 1) {
+    return `어제 ${timeStr}`
+  } else if (diffDays < 7) {
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토']
+    return `${dayNames[date.getDay()]}요일 ${timeStr}`
+  } else {
+    return date.toLocaleDateString('ko-KR', {
+      month: 'short',
+      day: 'numeric'
+    }) + ' ' + timeStr
+  }
 }
 
 const isMyMessage = (message) => {
