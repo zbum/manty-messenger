@@ -2,7 +2,7 @@
  * Service Worker for PWA - Push Notifications & Offline Caching
  */
 
-const CACHE_NAME = 'manty-v1'
+const CACHE_NAME = 'manty-v2'
 const OFFLINE_URL = '/messenger/offline.html'
 
 const PRECACHE_ASSETS = [
