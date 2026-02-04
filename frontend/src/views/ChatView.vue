@@ -127,6 +127,7 @@ defineExpose({ handleBackToList, isMobile })
 .chat-layout {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   background-color: #f5f5f5;
 }
 
