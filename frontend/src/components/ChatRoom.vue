@@ -154,6 +154,10 @@ const handleInvited = (user) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .room-title {

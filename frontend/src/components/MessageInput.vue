@@ -321,6 +321,7 @@ const handlePaste = (e) => {
   background: white;
   border-top: 1px solid #e0e0e0;
   transition: background-color 0.2s;
+  flex-shrink: 0;
 }
 
 .message-input-container.dragging {
