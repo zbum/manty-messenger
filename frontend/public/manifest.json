@@ -1,6 +1,6 @@
 {
-  "name": "Manty Messenger",
-  "short_name": "Manty",
+  "name": "만톡",
+  "short_name": "만톡",
   "description": "Manty Messenger - Real-time chat application",
   "start_url": "/messenger/",
   "scope": "/messenger/",
