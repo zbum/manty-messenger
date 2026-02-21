@@ -4,7 +4,13 @@
       "Bash(go run:*)",
       "Bash(go get:*)",
       "Bash(go build:*)",
-      "Bash(go vet:*)"
+      "Bash(go vet:*)",
+      "Bash(rsvg-convert:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npm run build:*)",
+      "Bash(convert:*)"
     ]
   }
 }
