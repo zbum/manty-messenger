@@ -1,4 +1,5 @@
 import Keycloak from 'keycloak-js'
+import { isNative, getKeycloakRedirectUri } from '../config/environment'
 
 const keycloak = new Keycloak({
   url: 'https://keycloak.manty.co.kr',
@@ -24,7 +25,7 @@ export async function initKeycloak(requireLogin = false) {
         onLoad: requireLogin ? 'login-required' : 'check-sso',
         pkceMethod: 'S256',
         checkLoginIframe: false,
-        silentCheckSsoRedirectUri: window.location.origin + '/messenger/silent-check-sso.html'
+        silentCheckSsoRedirectUri: isNative() ? undefined : window.location.origin + '/messenger/silent-check-sso.html'
       })
 
       initialized = true
@@ -93,13 +94,13 @@ async function refreshTokenIfNeeded() {
 
 export function login() {
   return keycloak.login({
-    redirectUri: window.location.origin + '/messenger/chat'
+    redirectUri: getKeycloakRedirectUri('/chat')
   })
 }
 
 export function logout() {
   return keycloak.logout({
-    redirectUri: window.location.origin + '/messenger/'
+    redirectUri: getKeycloakRedirectUri('/')
   })
 }
 

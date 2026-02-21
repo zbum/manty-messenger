@@ -17,6 +17,11 @@ type Config struct {
 	CORS     CORSConfig
 	Keycloak KeycloakConfig
 	WebPush  WebPushConfig
+	FCM      FCMConfig
+}
+
+type FCMConfig struct {
+	CredentialsFile string
 }
 
 type WebPushConfig struct {
@@ -130,6 +135,9 @@ func Load() (*Config, error) {
 			VAPIDPublicKey:  getEnv("VAPID_PUBLIC_KEY", ""),
 			VAPIDPrivateKey: getEnv("VAPID_PRIVATE_KEY", ""),
 			VAPIDSubject:    getEnv("VAPID_SUBJECT", "mailto:admin@example.com"),
+		},
+		FCM: FCMConfig{
+			CredentialsFile: getEnv("FCM_CREDENTIALS_FILE", ""),
 		},
 	}, nil
 }

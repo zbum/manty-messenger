@@ -1,4 +1,5 @@
 import { getValidToken } from './keycloak'
+import { getWsBaseUrl } from '../config/environment'
 
 // 연결 상태 상수
 const ConnectionState = {
@@ -98,9 +99,7 @@ class WebSocketService {
     this.setupVisibilityHandler()
 
     return new Promise((resolve, reject) => {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const host = window.location.host
-      const wsUrl = `${protocol}//${host}/messenger/ws?token=${token}`
+      const wsUrl = `${getWsBaseUrl()}?token=${token}`
 
       this.socket = new WebSocket(wsUrl)
 

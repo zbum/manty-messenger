@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { isAuthenticated } from '../services/keycloak'
+import { getBaseUrl } from '../config/environment'
 
 const routes = [
   {
@@ -21,7 +22,7 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHistory('/messenger/'),
+  history: createWebHistory(getBaseUrl()),
   routes
 })
 

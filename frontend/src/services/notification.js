@@ -1,4 +1,5 @@
 import api from './api'
+import { isNative } from '../config/environment'
 
 /**
  * Web Notification & Push Service
@@ -12,6 +13,85 @@ class NotificationService {
     this.isPushSupported = 'serviceWorker' in navigator && 'PushManager' in window
     this.swRegistration = null
     this.pushSubscription = null
+  }
+
+  /**
+   * 플랫폼에 따른 알림 초기화
+   */
+  async init() {
+    if (isNative()) {
+      return this.initNative()
+    }
+    // Web platform uses existing flow in App.vue
+  }
+
+  /**
+   * 네이티브 푸시 알림 초기화 (Capacitor)
+   */
+  async initNative() {
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications')
+
+      const permResult = await PushNotifications.requestPermissions()
+      if (permResult.receive !== 'granted') {
+        console.warn('Push notification permission denied')
+        return
+      }
+
+      await PushNotifications.register()
+
+      PushNotifications.addListener('registration', async (token) => {
+        console.log('FCM token received:', token.value)
+        try {
+          const { default: apiClient } = await import('./api')
+          await apiClient.post('/devices/register', {
+            device_id: await this.getDeviceId(),
+            platform: 'fcm',
+            token: token.value
+          })
+        } catch (error) {
+          console.error('Failed to register device token:', error)
+        }
+      })
+
+      PushNotifications.addListener('registrationError', (error) => {
+        console.error('Push registration error:', error)
+      })
+
+      PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        console.log('Push received in foreground:', notification)
+      })
+
+      PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+        console.log('Push notification tapped:', notification)
+        const data = notification.notification.data
+        if (data?.roomId) {
+          import('../router').then(({ default: router }) => {
+            router.push('/chat')
+          })
+        }
+      })
+    } catch (error) {
+      console.error('Failed to initialize native push:', error)
+    }
+  }
+
+  /**
+   * 디바이스 고유 ID 가져오기
+   */
+  async getDeviceId() {
+    try {
+      const { Device } = await import('@capacitor/device')
+      const info = await Device.getId()
+      return info.identifier
+    } catch {
+      let id = localStorage.getItem('device_id')
+      if (!id) {
+        id = crypto.randomUUID()
+        localStorage.setItem('device_id', id)
+      }
+      return id
+    }
   }
 
   /**

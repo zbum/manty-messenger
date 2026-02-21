@@ -102,6 +102,7 @@ func main() {
 
 	// Initialize push repository
 	pushRepo := repository.NewPushRepository(db)
+	deviceTokenRepo := repository.NewDeviceTokenRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, db)
@@ -109,9 +110,18 @@ func main() {
 	messageService := service.NewMessageService(messageRepo, memberRepo, userRepo)
 	pushService := service.NewPushService(pushRepo, memberRepo, &cfg.WebPush)
 
+	// Initialize FCM service (graceful failure - server continues without FCM)
+	fcmService, err := service.NewFCMService(&cfg.FCM, deviceTokenRepo)
+	if err != nil {
+		log.Printf("WARNING: FCM service initialization failed: %v (FCM push disabled)", err)
+	}
+
 	// Initialize WebSocket Hub first (needed by RoomHandler)
 	hub := websocket.NewHub(redisPubSub)
 	go hub.Run()
+
+	// Initialize notification service (facade for Web Push + FCM)
+	notificationService := service.NewNotificationService(pushService, fcmService, memberRepo, hub)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -120,9 +130,10 @@ func main() {
 	userHandler := handler.NewUserHandler(userRepo)
 	fileHandler := handler.NewFileHandler(localStorage, cfg.Storage.MaxFileSize)
 	pushHandler := handler.NewPushHandler(pushService)
+	deviceHandler := handler.NewDeviceHandler(fcmService)
 
 	// Initialize WebSocket handler
-	wsHandler := websocket.NewHandler(hub, keycloakService, authService, messageService, pushService, memberRepo, userRepo, roomRepo, messageRepo)
+	wsHandler := websocket.NewHandler(hub, keycloakService, authService, messageService, notificationService, memberRepo, userRepo, roomRepo, messageRepo)
 
 	// User lookup function for auth middleware
 	userLookupFunc := func(ctx context.Context, keycloakClaims *keycloak.Claims) (*middleware.UserClaims, error) {
@@ -203,6 +214,12 @@ func main() {
 	pushRoutesProtected.Use(authMiddleware.Authenticate)
 	pushRoutesProtected.HandleFunc("/subscribe", pushHandler.Subscribe).Methods("POST")
 	pushRoutesProtected.HandleFunc("/unsubscribe", pushHandler.Unsubscribe).Methods("DELETE")
+
+	// Device token routes (FCM/APNs)
+	deviceRoutes := api.PathPrefix("/devices").Subrouter()
+	deviceRoutes.Use(authMiddleware.Authenticate)
+	deviceRoutes.HandleFunc("/register", deviceHandler.Register).Methods("POST")
+	deviceRoutes.HandleFunc("/{deviceId}", deviceHandler.Unregister).Methods("DELETE")
 
 	// WebSocket route
 	r.HandleFunc("/ws", wsHandler.ServeWS)

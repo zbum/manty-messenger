@@ -1,8 +1,9 @@
 import axios from 'axios'
 import keycloak from './keycloak'
+import { getApiBaseUrl } from '../config/environment'
 
 const api = axios.create({
-  baseURL: '/messenger/api/v1',
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json'
   }

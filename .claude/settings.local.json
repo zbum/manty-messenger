@@ -9,8 +9,16 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
+      "Bash(npm install:*)",
       "Bash(npm run build:*)",
-      "Bash(convert:*)"
+      "Bash(convert:*)",
+      "Bash(grep:*)",
+      "Bash(xargs:*)",
+      "Bash(chmod:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(npm run build:capacitor:*)",
+      "Bash(/usr/local/bin/npm install:*)",
+      "Bash(/opt/homebrew/bin/npm install:*)"
     ]
   }
 }

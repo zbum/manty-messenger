@@ -24,28 +24,28 @@ var upgrader = websocket.Upgrader{
 }
 
 type Handler struct {
-	hub             *Hub
-	keycloakService *keycloak.Service
-	authService     *service.AuthService
-	messageService  *service.MessageService
-	pushService     *service.PushService
-	memberRepo      *repository.RoomMemberRepository
-	userRepo        *repository.UserRepository
-	roomRepo        *repository.RoomRepository
-	messageRepo     *repository.MessageRepository
+	hub                 *Hub
+	keycloakService     *keycloak.Service
+	authService         *service.AuthService
+	messageService      *service.MessageService
+	notificationService *service.NotificationService
+	memberRepo          *repository.RoomMemberRepository
+	userRepo            *repository.UserRepository
+	roomRepo            *repository.RoomRepository
+	messageRepo         *repository.MessageRepository
 }
 
-func NewHandler(hub *Hub, keycloakService *keycloak.Service, authService *service.AuthService, messageService *service.MessageService, pushService *service.PushService, memberRepo *repository.RoomMemberRepository, userRepo *repository.UserRepository, roomRepo *repository.RoomRepository, messageRepo *repository.MessageRepository) *Handler {
+func NewHandler(hub *Hub, keycloakService *keycloak.Service, authService *service.AuthService, messageService *service.MessageService, notificationService *service.NotificationService, memberRepo *repository.RoomMemberRepository, userRepo *repository.UserRepository, roomRepo *repository.RoomRepository, messageRepo *repository.MessageRepository) *Handler {
 	return &Handler{
-		hub:             hub,
-		keycloakService: keycloakService,
-		authService:     authService,
-		messageService:  messageService,
-		pushService:     pushService,
-		memberRepo:      memberRepo,
-		userRepo:        userRepo,
-		roomRepo:        roomRepo,
-		messageRepo:     messageRepo,
+		hub:                 hub,
+		keycloakService:     keycloakService,
+		authService:         authService,
+		messageService:      messageService,
+		notificationService: notificationService,
+		memberRepo:          memberRepo,
+		userRepo:            userRepo,
+		roomRepo:            roomRepo,
+		messageRepo:         messageRepo,
 	}
 }
 
@@ -271,8 +271,8 @@ func (h *Handler) handleSendMessage(client *Client, msg *WSMessage) {
 		}
 	}()
 
-	// Send push notification to offline users
-	if h.pushService != nil {
+	// Send push notification to offline users (Web Push + FCM)
+	if h.notificationService != nil {
 		go func() {
 			room, err := h.roomRepo.GetByID(context.Background(), payload.RoomID)
 			if err != nil {
@@ -304,7 +304,7 @@ func (h *Handler) handleSendMessage(client *Client, msg *WSMessage) {
 				},
 			}
 
-			h.pushService.SendToRoomMembers(context.Background(), payload.RoomID, client.UserID, pushNotif)
+			h.notificationService.NotifyRoomMembers(context.Background(), payload.RoomID, client.UserID, pushNotif)
 		}()
 	}
 }
